@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Form</class>
+ <widget class="QWidget" name="Form">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1214</width>
+    <height>854</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">background: qradialgradient(cx:0.5, cy:0.5, radius:1, fx:0.5, fy:0.5, stop:0#cfecff, stop:1 #E0E0E0);</string>
+  </property>
+  <layout class="QHBoxLayout" name="horizontalLayout">
+   <item>
+    <layout class="QVBoxLayout" name="verticalLayout">
+     <item>
+      <widget class="QLabel" name="image_label">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="font">
+        <font>
+         <family>Agency FB</family>
+         <pointsize>48</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>eyetracker view</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="image_label_2">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="font">
+        <font>
+         <family>Agency FB</family>
+         <pointsize>48</pointsize>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
+       <property name="text">
+        <string>realsense view</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="verticalLayout_4">
+     <item>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <item>
+        <widget class="QComboBox" name="comboBox">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="font">
+          <font>
+           <family>Times New Roman</family>
+           <pointsize>10</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">
+
+QComboBox{
+background: qradialgradient(cx: 0.5, cy: 0.5, radius: 0.5, fx: 0.5, fy: 0.5, stop: 0 #99ccff, stop: 1 white);
+    border-radius: 25px;
+    border: 2px solid #005266;
+    color: #005266;
+    font-weight: bold;
+    padding: 10px;}</string>
+         </property>
+         <item>
+          <property name="text">
+           <string>Chan Ho Si</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Cheung Kar Tung Sean</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Leung Mei Yee</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Chan Kam Chau</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Cheung Chun Hin</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Yeung Hiu Lam</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Chan Ho Yan</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Tse Tak Wah</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Leung Yuk Wing</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Cheung Yuen</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="font">
+          <font>
+           <family>Times New Roman</family>
+           <pointsize>10</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton:hover{
+	border: none;
+	background-color: rgb(255, 255,0);
+	color: rgb(0, 0, 0);
+}
+
+QPushButton{
+background: qradialgradient(cx: 0.5, cy: 0.5, radius: 0.5, fx: 0.5, fy: 0.5, stop: 0 #99ccff, stop: 1 white);
+    border-radius: 25px;
+    border: 2px solid #005266;
+    color: #005266;
+    font-weight: bold;
+    padding: 10px;}</string>
+         </property>
+         <property name="text">
+          <string>PushButton</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
