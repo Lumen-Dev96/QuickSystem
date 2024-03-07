@@ -82,7 +82,7 @@ class Mythread1(QThread):
         self.video_path = os.path.join(self.file_path, self.video_name)
         self.videoWrite = cv2.VideoWriter(self.video_path, self.fourcc, 60,
                                           (960, 539))
-        self.eyetracker_txt_name = "1.txt"
+        self.eyetracker_txt_name = "gaze.txt"
         self.time_txt_name = "time.txt"
         self.txt_path = os.path.join(self.file_path, self.eyetracker_txt_name)
         self.time_txt_path = os.path.join(self.file_path, self.time_txt_name)
@@ -92,7 +92,7 @@ class Mythread1(QThread):
         now_time = time.strftime("%Y-%m-%d %H:%M:%S", now)
         return now_time
 
-    def file_exist(self, file_path):  # check does the file exsist or not
+    def file_exist(self, file_path):  # check does the file exist or not
         if not os.path.exists(file_path):
             print("do not exists")
             os.makedirs(file_path)
@@ -132,9 +132,9 @@ class Mythread1(QThread):
         return topic, payload
 
     def run(self):
-        with open(file=self.time_txt_path, mode="w") as f1:  # write down the abs time
+        with open(file=self.time_txt_path, mode="w", encoding="utf-8") as f1:  # write down the abs time
             f1.write("date time\n")
-            with open(file=self.txt_path, mode="w") as f:  # write down the position of the gaze
+            with open(file=self.txt_path, mode="w", encoding="utf-8") as f:  # write down the position of the gaze
                 while 1:
                     # ref, self.frame = self.cap.read()
                     # Save the video file if the user want to stop
@@ -223,12 +223,8 @@ class Mythread2(QThread):  # handling the video data of the simple webcam
         super(Mythread2, self).__init__()
 
         self.file_name = self.get_time()[:10]
-        self.root_path = r"E:\data\realsense"
-        # self.file_path = os.path.join(self.root_path,self.file_name)
-        # self.file_exist(self.file_path)
         self.file_path = file_path
-        # self.video_name = self.get_time()[-8:-6]+self.get_time()[-5:-3]+self.get_time()[-2:]+".mp4"
-        self.video_name = "1.mp4"
+        self.video_name = "video.mp4"
         self.video_path = os.path.join(self.file_path, self.video_name)
         # 视频保存路径
         # 初始化参数
@@ -253,7 +249,7 @@ class Mythread2(QThread):  # handling the video data of the simple webcam
             print("exist")
 
     def run(self):
-        with open(file=self.realsense_txt_path, mode="w") as f2:
+        with open(file=self.realsense_txt_path, mode="w", encoding="utf-8") as f2:
             while 1:
                 color_image = self.cam.get_frame()
                 # print(self.name)
@@ -334,14 +330,20 @@ class MainWindow(QWidget, Ui_Form):  # handling the UI issue
     def test(self):
         if self.status == 0:
             self.creat_file()
-            self.my_train = Mythread1(self.eyetracker_path)  # create the thread for the eyeball tracker
+            # create the thread for the eyeball tracker
+            self.my_train = Mythread1(self.eyetracker_path)
             self.my_train.photeSignal.connect(self.showPic1)
             self.my_train.d.connect(self.hideAll)
             self.my_train.start()
 
+            # create the thread for the simple webcam
+            self.my_train2 = Mythread2(self.realsense_path)
+            self.my_train2.photeSignal.connect(self.showPic2)
+            self.my_train2.d.connect(self.hideAll)
+            self.my_train2.start()
             self.status = 1  # indicate the thread is running
             self.pushButton.setText("Stop")
-            # self.limit_frame_2()
+            # self.limit_frame_1()
         else:
             try:
                 if self.my_train.isRunning():  # check the thread is running properly or not
@@ -350,6 +352,14 @@ class MainWindow(QWidget, Ui_Form):  # handling the UI issue
                     self.my_train.wait()
             except:
                 pass  # It can be done usually, so just pass
+
+            try:
+                if self.my_train2.isRunning():
+                    self.my_train2.requestInterruption()
+                    self.my_train2.quit()
+                    self.my_train2.wait()
+            except:
+                pass # It can be done usually, so just pass
 
             self.pushButton.setText("Start")
             self.status = 0  # update the state
