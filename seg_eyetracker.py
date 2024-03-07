@@ -198,3 +198,6 @@ class SegEyetracker:
                     line_num += 1
 
         txt_file.close()
+
+
+# if __name__ == "__main__":

@@ -15,7 +15,8 @@ import pyrealsense2 as rs
 import datetime
 
 
-class Mythread1(QThread):  # this thread used to handle the eyeball tracker
+class Mythread1(QThread):
+    # this thread used to handle the eyeball tracker
     photeSignal = pyqtSignal(QPixmap)
     d = pyqtSignal(str)
 
@@ -34,7 +35,7 @@ class Mythread1(QThread):  # this thread used to handle the eyeball tracker
         self.sub = self.context.socket(zmq.SUB)
         self.sub.connect("tcp://{}:{}".format(self.addr, self.sub_port))
 
-        ##################  GAZE #########################
+        #################### GAZE ####################
 
         self.context2 = zmq.Context()
         # open a req port to talk to pupil
@@ -55,7 +56,7 @@ class Mythread1(QThread):  # this thread used to handle the eyeball tracker
         # sub.setsockopt_string(zmq.SUBSCRIBE, "pupil.")
         self.sub2.setsockopt_string(zmq.SUBSCRIBE, 'gaze')
 
-        ##################  GAZE #########################
+        ####################  GAZE ####################
 
         # set subscriptions to topics
         # recv just pupil/gaze/notifications
@@ -77,7 +78,6 @@ class Mythread1(QThread):  # this thread used to handle the eyeball tracker
         # self.file_path = os.path.join(self.root_path, self.file_name) # create a file storage based on the time
         # self.file_exist(self.file_path) # please refer to the code below
         self.file_path = file_path
-        # self.video_name = self.get_time()[-8:-6] + self.get_time()[-5:-3] + self.get_time()[-2:] + ".mp4" # please refer to the code below
         self.video_name = "1.mp4"
         self.video_path = os.path.join(self.file_path, self.video_name)
         self.videoWrite = cv2.VideoWriter(self.video_path, self.fourcc, 60,
@@ -137,12 +137,14 @@ class Mythread1(QThread):  # this thread used to handle the eyeball tracker
             with open(file=self.txt_path, mode="w") as f:  # write down the position of the gaze
                 while 1:
                     # ref, self.frame = self.cap.read()
-                    if QThread.currentThread().isInterruptionRequested():  # Save the video file if the user want to stop
+                    # Save the video file if the user want to stop
+                    if QThread.currentThread().isInterruptionRequested():
                         # self.cap.release()
                         self.videoWrite.release()
                         self.d.emit("finished")
                         break
-                    while self.has_new_data_available() & self.has_new_data_available2():  # Ensure we get all the data that we need from the socket
+                    # Ensure we get all the data that we need from the socket
+                    while self.has_new_data_available() & self.has_new_data_available2():
                         topic, msg = self.recv_from_sub()
                         if topic.startswith("frame.") and msg["format"] != self.FRAME_FORMAT:
                             print(
@@ -159,7 +161,6 @@ class Mythread1(QThread):  # this thread used to handle the eyeball tracker
                         self.num += 1  # count the photo that we collected
                         # if self.num % 2 ==0:
                         #     self.videoWrite.write(self.recent_world)
-                        ############ information of gaze ###################
                         topic2 = self.sub2.recv_string()
 
                         msg2 = self.sub2.recv()
@@ -189,9 +190,7 @@ class Mythread1(QThread):  # this thread used to handle the eyeball tracker
 
 
 class Camera(object):
-    '''
-    realsense相机处理类
-    '''
+    # realsense相机处理类
 
     def __init__(self, width=960, height=540, fps=60):
         self.width = width
@@ -259,7 +258,8 @@ class Mythread2(QThread):  # handling the video data of the simple webcam
                 color_image = self.cam.get_frame()
                 # print(self.name)
 
-                if QThread.currentThread().isInterruptionRequested():  # release all the resource if the user want to stop
+                if QThread.currentThread().isInterruptionRequested():
+                    # release all the resource if the user want to stop
                     self.wr.release()
                     self.cam.release()
                     self.d.emit("finished")
@@ -273,7 +273,6 @@ class Mythread2(QThread):  # handling the video data of the simple webcam
                     self.wr.write(color_image)
                     now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "\n"
                     f2.write(now_time)
-                    # cv2.imwrite(new_path, self.show, [cv2.IMWRITE_PNG_COMPRESSION, 6])
                     color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)  # 视频色彩转换回RGB，这样才是现实的颜色
 
                     self.showImage = QImage(color_image, color_image.shape[1], color_image.shape[0],
@@ -300,7 +299,7 @@ class MainWindow(QWidget, Ui_Form):  # handling the UI issue
         self.athlete_name = text
 
     def creat_file(self):
-        root_path = r"E:\Boccia_test"
+        root_path = "./data"
         self.file_exist(root_path)
         root_date_file_name = self.get_time()[:10]
         root_date_file_path = os.path.join(root_path, root_date_file_name)
@@ -324,7 +323,7 @@ class MainWindow(QWidget, Ui_Form):  # handling the UI issue
         now_time = time.strftime("%Y-%m-%d %H:%M:%S", now)
         return now_time
 
-    def file_exist(self, file_path):  # check is the file exsist or not
+    def file_exist(self, file_path):  # check is the file exist or not
         if not os.path.exists(file_path):
             print(file_path, " is not exists")
             os.makedirs(file_path)
@@ -333,63 +332,27 @@ class MainWindow(QWidget, Ui_Form):  # handling the UI issue
             pass
 
     def test(self):
-        if self.athlete_name != "Chan Ho Yan" and self.athlete_name != "Tse Tak Wah":
-            if self.status == 0:
-                self.creat_file()
-                self.my_train = Mythread1(self.eyetracker_path)  # create the thread for the eyeball tracker
-                self.my_train.photeSignal.connect(self.showPic1)
-                self.my_train.d.connect(self.hideAll)
-                self.my_train.start()
+        if self.status == 0:
+            self.creat_file()
+            self.my_train = Mythread1(self.eyetracker_path)  # create the thread for the eyeball tracker
+            self.my_train.photeSignal.connect(self.showPic1)
+            self.my_train.d.connect(self.hideAll)
+            self.my_train.start()
 
-                # self.my_train2 = Mythread2(self.realsense_path)# create the thread for the simple webcam
-                # self.my_train2.photeSignal.connect(self.showPic2)
-                # self.my_train2.d.connect(self.hideAll)
-                # self.my_train2.start()
-                self.status = 1  # indicate the thread is running
-                self.pushButton.setText("Stop")
-                # self.limit_frame_1()
-            else:
-                try:
-                    if self.my_train.isRunning():  # check the thread is running properly or not
-                        self.my_train.requestInterruption()
-                        self.my_train.quit()
-                        self.my_train.wait()
-                except:
-                    pass  # It can be done usually, so just pass
-
-                # try:
-                #     if self.my_train2.isRunning():
-                #         self.my_train2.requestInterruption()
-                #         self.my_train2.quit()
-                #         self.my_train2.wait()
-                # except:
-                #     pass # It can be done usually, so just pass
-
-                self.pushButton.setText("Start")
-                self.status = 0  # update the state
-
+            self.status = 1  # indicate the thread is running
+            self.pushButton.setText("Stop")
+            # self.limit_frame_2()
         else:
-            if self.status == 0:
-                self.creat_file()
-                self.my_train = Mythread1(self.eyetracker_path)  # create the thread for the eyeball tracker
-                self.my_train.photeSignal.connect(self.showPic1)
-                self.my_train.d.connect(self.hideAll)
-                self.my_train.start()
+            try:
+                if self.my_train.isRunning():  # check the thread is running properly or not
+                    self.my_train.requestInterruption()
+                    self.my_train.quit()
+                    self.my_train.wait()
+            except:
+                pass  # It can be done usually, so just pass
 
-                self.status = 1  # indicate the thread is running
-                self.pushButton.setText("Stop")
-                # self.limit_frame_2()
-            else:
-                try:
-                    if self.my_train.isRunning():  # check the thread is running properly or not
-                        self.my_train.requestInterruption()
-                        self.my_train.quit()
-                        self.my_train.wait()
-                except:
-                    pass  # It can be done usually, so just pass
-
-                self.pushButton.setText("Start")
-                self.status = 0  # update the state
+            self.pushButton.setText("Start")
+            self.status = 0  # update the state
 
     def limit_frame_1(self):
         count = 0
@@ -402,6 +365,7 @@ class MainWindow(QWidget, Ui_Form):  # handling the UI issue
                         self.my_train.quit()
                         self.my_train.wait()
                 except:
+                    print("Error happened when start collecting")
                     pass  # It can be done usually, so just pass
                 try:
                     if self.my_train2.isRunning():
