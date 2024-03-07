@@ -116,10 +116,11 @@ class Mythread1(QThread):
         return self.sub2.get(zmq.EVENTS) & zmq.POLLIN
 
     def recv_from_sub(self):  #
-        """Recv a message with topic, payload.
-        Topic is a utf-8 encoded string. Returned as unicode object.
+        """
+        Recv a message with topic, payload.
+        Topic is an utf-8 encoded string. Returned as unicode object.
         Payload is a msgpack serialized dict. Returned as a python dict.
-        Any addional message frames will be added as a list
+        Any additional message frames will be added as a list
         in the payload dict with key: '__raw_data__' .
         """
         topic = self.sub.recv_string()
