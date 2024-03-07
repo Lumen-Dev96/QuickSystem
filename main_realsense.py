@@ -1,4 +1,4 @@
-import sys,os,cv2
+import sys
 
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -161,7 +161,7 @@ class Mythread1(QThread): # this thread used to handle the eyeball tracker
                     self.num += 1  # count the photo that we collected
                     # if self.num % 2 ==0:
                     #     self.videoWrite.write(self.recent_world)
-                    ############ information of gaze###################
+                    ############ information of gaze ###################
                     topic2 = self.sub2.recv_string()
 
                     msg2 = self.sub2.recv()

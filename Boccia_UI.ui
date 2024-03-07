@@ -60,6 +60,28 @@
        </property>
       </widget>
      </item>
+         <item>
+      <widget class="QLabel" name="image_label_2">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="font">
+        <font>
+         <family>Agency FB</family>
+         <pointsize>48</pointsize>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
+       <property name="text">
+        <string>handwriting view</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>
@@ -178,6 +200,42 @@ background: qradialgradient(cx: 0.5, cy: 0.5, radius: 0.5, fx: 0.5, fy: 0.5, sto
          </property>
          <property name="text">
           <string>PushButton</string>
+         </property>
+        </widget>
+       </item>
+          <item>
+        <widget class="QPushButton" name="pushButton">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="font">
+          <font>
+           <family>Times New Roman</family>
+           <pointsize>10</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton:hover{
+	border: none;
+	background-color: rgb(255, 255,0);
+	color: rgb(0, 0, 0);
+}
+
+QPushButton{
+background: qradialgradient(cx: 0.5, cy: 0.5, radius: 0.5, fx: 0.5, fy: 0.5, stop: 0 #99ccff, stop: 1 white);
+    border-radius: 25px;
+    border: 2px solid #005266;
+    color: #005266;
+    font-weight: bold;
+    padding: 10px;}</string>
+         </property>
+         <property name="text">
+          <string>Start Collecting</string>
          </property>
         </widget>
        </item>
