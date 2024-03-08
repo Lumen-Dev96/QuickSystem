@@ -1,6 +1,6 @@
 # Quick System
 
-This template should help get you collecting [eyetracker](https://docs.pupil-labs.com/core/developer/), pendo handwriting, realsense camera data.
+This template should help get you collecting [eyetracker](https://docs.pupil-labs.com/core/developer/), pendo handwriting, [realsense camera](https://github.com/IntelRealSense/librealsense) data.
 
 ## Enviroment
 

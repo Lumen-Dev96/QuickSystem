@@ -75,7 +75,7 @@ class Thread1(QThread):
         self.file_path = file_path
         self.video_name = "1.mp4"
         self.video_path = os.path.join(self.file_path, self.video_name)
-        self.videoWrite = cv2.VideoWriter(self.video_path, self.fourcc, 60,
+        self.videoWrite = cv2.VideoWriter(self.video_path, self.fourcc, 30,
                                           (960, 539))
         self.eyetracker_txt_name = "gaze.txt"
         self.time_txt_name = "time.txt"
@@ -179,7 +179,7 @@ class Camera(object):
     def __init__(self, width=960, height=540, fps=60):
         self.width = width
         self.height = height
-        self.pipeline = rs.pipeline(None)
+        self.pipeline = rs.pipeline()
         self.config = rs.config()
         self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, fps)
         self.pipeline.start(self.config)  # 开始连接相机
@@ -211,7 +211,7 @@ class Thread2(QThread):  # handling the video data of the simple webcam
         self.video_path = os.path.join(self.file_path, self.video_name)
         # 视频保存路径
         # 初始化参数
-        self.fps, self.w, self.h = 60, 960, 540
+        self.fps, self.w, self.h = 30, 960, 540
         self.mp4 = cv2.VideoWriter_fourcc(*'mp4v')  # 视频格式
         self.wr = cv2.VideoWriter(self.video_path, self.mp4, self.fps, (self.w, self.h), isColor=True)  # 视频保存而建立对象
         self.cam = Camera(self.w, self.h, self.fps)
@@ -259,42 +259,42 @@ class Thread3(QThread):
 
         self.showImage = None
         self.file_path = file_path
-        
+
         self.time_txt_name = "handwriting_time.txt"
         self.time_txt_path = os.path.join(self.file_path, self.time_txt_name)
 
-        print('test')
+        self.digit_note_controller = CDLL("./SDK/x64/DigitNoteUSBController.dll")
 
-        self.digit_note_controller = CDLL("./SDK/DigitNoteUSBController.dll")
-        #
-        # self.digit_note_controller.connectDevice()
-        #
-        # print(self.digit_note_controller.connectDevice())
+        if self.digit_note_controller.connectDevice() == 0:
+            print("Connect handwriting success")
+            if self.digit_note_controller.switchToRealTimeMode() == 0:
+                print("Switch to real time mode success")
+            else:
+                print("Switch to real time mode failed")
+        else:
+            print("Connect handwriting failed")
 
-    # def run(self):
-    #     with open(file=self.time_txt_path, mode="w", encoding="utf-8") as f2:
-    #         while True:
-    #             color_image = self.cam.get_frame()
-    #             # print(self.name)
-    #
-    #             if QThread.currentThread().isInterruptionRequested():
-    #                 # release all the resource if the user want to stop
-    #                 self.wr.release()
-    #                 self.cam.release()
-    #                 self.d.emit("finished")
-    #                 print("finish")
-    #                 break
-    #             if color_image is not None:
-    #                 self.wr.write(color_image)
-    #                 now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "\n"
-    #                 f2.write(now_time)
-    #                 color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)  # 视频色彩转换回RGB，这样才是现实的颜色
-    #
-    #                 self.showImage = QImage(color_image, color_image.shape[1], color_image.shape[0],
-    #                                         QImage.Format_RGB888)
-    #                 self.qtVideoStream.emit(QPixmap.fromImage(self.showImage))
-    #             else:
-    #                 self.cap = cv2.VideoCapture("1.mp4")
+
+    def run(self):
+        def on_progress_callback_for_real_time_pen_datas(x, y, pressure):
+            # print(x, y, pressure)
+            with open(file=self.time_txt_path, mode="a", encoding="utf-8") as file:
+                now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                line = "{}, {}, {}, {}\n".format(now_time, x, y, pressure)
+                file.write(line)
+
+        callback_func = CFUNCTYPE(None, c_int, c_int, c_int)
+
+        c_callback_func = callback_func(on_progress_callback_for_real_time_pen_datas)
+
+        self.digit_note_controller.SetCallBackForRealTimePenDatas(c_callback_func)
+
+        while True:
+            if QThread.currentThread().isInterruptionRequested():
+                # release all the resource if the user want to stop
+                self.d.emit("thread3 finished")
+                print("thread3 finish")
+                break
 
 
 class MainWindow(QWidget, Ui_Form):
@@ -309,7 +309,7 @@ class MainWindow(QWidget, Ui_Form):
         self.realsense_path = None
         self.handwriting_path = None
 
-        self.my_train1 = None
+        self.my_train = None
         self.my_train2 = None
         self.my_train3 = None
 
@@ -353,14 +353,14 @@ class MainWindow(QWidget, Ui_Form):
             self.my_train2.qtVideoStream.connect(self.show_pic2)
             self.my_train2.d.connect(self.hide_all)
             self.my_train2.start()
-            self.status = 1  # indicate the thread is running
-            self.pushButton.setText("Stop")
+
 
             # create the thread for the pendo handwriting
             self.my_train3 = Thread3(self.handwriting_path)
-            self.my_train3.qtVideoStream.connect(self.display_screen1)
-            self.my_train3.d.connect(self.hide_all)
             self.my_train3.start()
+
+            self.status = 1  # indicate the thread is running
+            self.pushButton.setText("Stop")
         else:
             try:
                 if self.my_train.isRunning():  # check the thread is running properly or not
@@ -376,7 +376,7 @@ class MainWindow(QWidget, Ui_Form):
                     self.my_train2.quit()
                     self.my_train2.wait()
             except:
-                pass # It can be done usually, so just pass
+                pass  # It can be done usually, so just pass
 
             try:
                 if self.my_train3.isRunning():
