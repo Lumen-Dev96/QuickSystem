@@ -13,15 +13,18 @@ import os
 import time
 import pyrealsense2 as rs
 import datetime
+from util.common import create_file_if_not_exists, get_time
+
+from ctypes import *
 
 
-class Mythread1(QThread):
+class Thread1(QThread):
     # this thread used to handle the eyeball tracker
-    photeSignal = pyqtSignal(QPixmap)
+    qtVideoStream = pyqtSignal(QPixmap)
     d = pyqtSignal(str)
 
     def __init__(self, file_path):
-        super(Mythread1, self).__init__()
+        super(Thread1, self).__init__()
         self.context = zmq.Context()
         # open a req port to talk to pupil
         self.addr = "127.0.0.1"  # remote ip or localhost
@@ -53,7 +56,6 @@ class Mythread1(QThread):
 
         # set subscriptions to topics
         # recv just pupil/gaze/notifications
-        # sub.setsockopt_string(zmq.SUBSCRIBE, "pupil.")
         self.sub2.setsockopt_string(zmq.SUBSCRIBE, 'gaze')
 
         ####################  GAZE ####################
@@ -73,10 +75,7 @@ class Mythread1(QThread):
         # self.videoWrite = cv2.VideoWriter(r'C:\Users\90335\Desktop\2\test.mp4', self.fourcc, 30,
         #                                   (960,600))
         self.num = 0  # counter for the photo
-        self.file_name = self.get_time()[:10]
-        # self.root_path = r"E:\data\eyetracker"
-        # self.file_path = os.path.join(self.root_path, self.file_name) # create a file storage based on the time
-        # self.file_exist(self.file_path) # please refer to the code below
+        self.file_name = get_time()[:10]
         self.file_path = file_path
         self.video_name = "1.mp4"
         self.video_path = os.path.join(self.file_path, self.video_name)
@@ -86,18 +85,6 @@ class Mythread1(QThread):
         self.time_txt_name = "time.txt"
         self.txt_path = os.path.join(self.file_path, self.eyetracker_txt_name)
         self.time_txt_path = os.path.join(self.file_path, self.time_txt_name)
-
-    def get_time(self):
-        now = time.localtime()
-        now_time = time.strftime("%Y-%m-%d %H:%M:%S", now)
-        return now_time
-
-    def file_exist(self, file_path):  # check does the file exist or not
-        if not os.path.exists(file_path):
-            print("do not exists")
-            os.makedirs(file_path)
-        else:
-            print("exist")
 
     def notify(self):
         """Sends ``notification`` to Pupil Remote"""
@@ -187,7 +174,7 @@ class Mythread1(QThread):
 
                         self.showImage = QImage(self.show.data, self.show.shape[1], self.show.shape[0],
                                                 QImage.Format_RGB888)
-                        self.photeSignal.emit(QPixmap.fromImage(self.showImage))
+                        self.qtVideoStream.emit(QPixmap.fromImage(self.showImage))
 
 
 class Camera(object):
@@ -216,14 +203,14 @@ class Camera(object):
         self.pipeline.stop()
 
 
-class Mythread2(QThread):  # handling the video data of the simple webcam
-    photeSignal = pyqtSignal(QPixmap)
+class Thread2(QThread):  # handling the video data of the simple webcam
+    qtVideoStream = pyqtSignal(QPixmap)
     d = pyqtSignal(str)
 
     def __init__(self, file_path):
-        super(Mythread2, self).__init__()
+        super(Thread2, self).__init__()
 
-        self.file_name = self.get_time()[:10]
+        self.file_name = get_time()[:10]
         self.file_path = file_path
         self.video_name = "video.mp4"
         self.video_path = os.path.join(self.file_path, self.video_name)
@@ -237,17 +224,6 @@ class Mythread2(QThread):  # handling the video data of the simple webcam
         self.realsense_time_txt_name = "realsense_time.txt"
         self.realsense_txt_path = os.path.join(self.file_path, self.realsense_time_txt_name)
 
-    def get_time(self):  # the same function as the previous one
-        now = time.localtime()
-        now_time = time.strftime("%Y-%m-%d %H:%M:%S", now)
-        return now_time
-
-    def file_exist(self, file_path):  # the same function as the previous one
-        if not os.path.exists(file_path):
-            print("do not exists")
-            os.makedirs(file_path)
-        else:
-            print("exist")
 
     def run(self):
         with open(file=self.realsense_txt_path, mode="w", encoding="utf-8") as f2:
@@ -274,93 +250,148 @@ class Mythread2(QThread):  # handling the video data of the simple webcam
 
                     self.showImage = QImage(color_image, color_image.shape[1], color_image.shape[0],
                                             QImage.Format_RGB888)
-                    self.photeSignal.emit(QPixmap.fromImage(self.showImage))
+                    self.qtVideoStream.emit(QPixmap.fromImage(self.showImage))
                 else:
                     self.cap = cv2.VideoCapture("1.mp4")
 
 
-class MainWindow(QWidget, Ui_Form):  # handling the UI issue
+class Thread3(QThread):
+    # handling the handwriting data of pendo board
+    qtVideoStream = pyqtSignal(QPixmap)
+    d = pyqtSignal(str)
+
+    def __init__(self, file_path):
+        super(Thread3, self).__init__()
+
+        self.file_name = get_time()[:10]
+        self.file_path = file_path
+        self.video_name = "video.mp4"
+        self.video_path = os.path.join(self.file_path, self.video_name)
+        # 视频保存路径
+        # 初始化参数
+        self.fps, self.w, self.h = 60, 960, 540
+        self.mp4 = cv2.VideoWriter_fourcc(*'mp4v')  # 视频格式
+        self.wr = cv2.VideoWriter(self.video_path, self.mp4, self.fps, (self.w, self.h), isColor=True)  # 视频保存而建立对象
+        self.cam = Camera(self.w, self.h, self.fps)
+        # 保存绝对时间戳
+        self.realsense_time_txt_name = "realsense_time.txt"
+        self.realsense_txt_path = os.path.join(self.file_path, self.realsense_time_txt_name)
+
+    def run(self):
+        with open(file=self.realsense_txt_path, mode="w", encoding="utf-8") as f2:
+            while 1:
+                color_image = self.cam.get_frame()
+                # print(self.name)
+
+                if QThread.currentThread().isInterruptionRequested():
+                    # release all the resource if the user want to stop
+                    self.wr.release()
+                    self.cam.release()
+                    self.d.emit("finished")
+                    print("finish")
+                    break
+                if color_image is not None:
+                    self.wr.write(color_image)
+                    now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "\n"
+                    f2.write(now_time)
+                    color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)  # 视频色彩转换回RGB，这样才是现实的颜色
+
+                    self.showImage = QImage(color_image, color_image.shape[1], color_image.shape[0],
+                                            QImage.Format_RGB888)
+                    self.qtVideoStream.emit(QPixmap.fromImage(self.showImage))
+                else:
+                    self.cap = cv2.VideoCapture("1.mp4")
+
+
+class MainWindow(QWidget, Ui_Form):
     def __init__(self):
-        # 继承(QMainWindow,Ui_MainWindow)父类的属性
         super(MainWindow, self).__init__()
-        # 初始化界面组件
         self.setupUi(self)
         self.status = 0
         self.pushButton.clicked.connect(self.test)
-        self.comboBox.activated[str].connect(self.onActivated)
-        self.athlete_name = "Leung Yuk Wing"
+        self.comboBox.activated[str].connect(self.on_activated)
+        self.user_name = "Leung Yuk Wing"
         self.eyetracker_path = None
         self.realsense_path = None
+        self.handwriting_path = None
 
-    def onActivated(self, text):
-        self.athlete_name = text
+        self.my_train1 = None
+        self.my_train2 = None
+        self.my_train3 = None
 
-    def creat_file(self):
-        root_path = "./data"
-        self.file_exist(root_path)
-        root_date_file_name = self.get_time()[:10]
-        root_date_file_path = os.path.join(root_path, root_date_file_name)
-        self.file_exist(root_date_file_path)
+    def on_activated(self, text):
+        self.user_name = text
 
-        athlete_list = os.listdir(root_date_file_path)
-        num_athelte = 0
-        for name in athlete_list:
-            if self.athlete_name == name[:-4]:
-                num_athelte += 1
-        athlete_file_name = self.athlete_name + "_" + ("%03d" % (num_athelte + 1))
-        athlete_file_path = os.path.join(root_date_file_path, athlete_file_name)
-        self.file_exist(athlete_file_path)
-        self.realsense_path = os.path.join(athlete_file_path, "realsense")
-        self.eyetracker_path = os.path.join(athlete_file_path, "eyetracker")
-        self.file_exist(self.realsense_path)
-        self.file_exist(self.eyetracker_path)
+    def create_file(self):
+        output_path = "./data"
+        # get date format: 2024-03-08
+        current_date = get_time()[:10]
+        root_date_file_path = os.path.join(output_path, current_date)
+        create_file_if_not_exists(root_date_file_path)
 
-    def get_time(self):
-        now = time.localtime()
-        now_time = time.strftime("%Y-%m-%d %H:%M:%S", now)
-        return now_time
-
-    def file_exist(self, file_path):  # check is the file exist or not
-        if not os.path.exists(file_path):
-            print(file_path, " is not exists")
-            os.makedirs(file_path)
-        else:
-            print(file_path, " is exists")
-            pass
+        user_list = os.listdir(root_date_file_path)
+        num_participant = 0
+        for name in user_list:
+            if self.user_name == name[:-4]:
+                # username format like that: xx_001, xx_002
+                num_participant += 1
+        file_name = self.user_name + "_" + ("%03d" % (num_participant + 1))
+        file_path = os.path.join(root_date_file_path, file_name)
+        create_file_if_not_exists(file_path)
+        self.realsense_path = os.path.join(file_path, "realsense")
+        self.eyetracker_path = os.path.join(file_path, "eyetracker")
+        self.handwriting_path = os.path.join(file_path, "handwriting")
+        create_file_if_not_exists(self.realsense_path)
+        create_file_if_not_exists(self.eyetracker_path)
+        create_file_if_not_exists(self.handwriting_path)
 
     def test(self):
         if self.status == 0:
-            self.creat_file()
-            # create the thread for the eyeball tracker
-            self.my_train = Mythread1(self.eyetracker_path)
-            self.my_train.photeSignal.connect(self.showPic1)
-            self.my_train.d.connect(self.hideAll)
-            self.my_train.start()
+            self.create_file()
+            # # create the thread for the eyeball tracker
+            # self.my_train = Thread1(self.eyetracker_path)
+            # self.my_train.qtVideoStream.connect(self.display_screen1)
+            # self.my_train.d.connect(self.hide_all)
+            # self.my_train.start()
+            #
+            # # create the thread for the simple webcam
+            # self.my_train2 = Thread2(self.realsense_path)
+            # self.my_train2.qtVideoStream.connect(self.show_pic2)
+            # self.my_train2.d.connect(self.hide_all)
+            # self.my_train2.start()
+            # self.status = 1  # indicate the thread is running
+            # self.pushButton.setText("Stop")
+            # # self.limit_frame_1()
 
-            # create the thread for the simple webcam
-            self.my_train2 = Mythread2(self.realsense_path)
-            self.my_train2.photeSignal.connect(self.showPic2)
-            self.my_train2.d.connect(self.hideAll)
-            self.my_train2.start()
-            self.status = 1  # indicate the thread is running
-            self.pushButton.setText("Stop")
-            # self.limit_frame_1()
+            # create the thread for the pendo handwriting
+            self.my_train3 = Thread3(self.handwriting_path)
+            self.my_train3.qtVideoStream.connect(self.display_screen1)
+            self.my_train3.d.connect(self.hide_all)
+            self.my_train3.start()
         else:
+            # try:
+            #     if self.my_train.isRunning():  # check the thread is running properly or not
+            #         self.my_train.requestInterruption()
+            #         self.my_train.quit()
+            #         self.my_train.wait()
+            # except:
+            #     pass  # It can be done usually, so just pass
+            #
+            # try:
+            #     if self.my_train2.isRunning():
+            #         self.my_train2.requestInterruption()
+            #         self.my_train2.quit()
+            #         self.my_train2.wait()
+            # except:
+            #     pass # It can be done usually, so just pass
+
             try:
-                if self.my_train.isRunning():  # check the thread is running properly or not
-                    self.my_train.requestInterruption()
-                    self.my_train.quit()
-                    self.my_train.wait()
+                if self.my_train3.isRunning():
+                    self.my_train3.requestInterruption()
+                    self.my_train3.quit()
+                    self.my_train3.wait()
             except:
                 pass  # It can be done usually, so just pass
-
-            try:
-                if self.my_train2.isRunning():
-                    self.my_train2.requestInterruption()
-                    self.my_train2.quit()
-                    self.my_train2.wait()
-            except:
-                pass # It can be done usually, so just pass
 
             self.pushButton.setText("Start")
             self.status = 0  # update the state
@@ -371,7 +402,8 @@ class MainWindow(QWidget, Ui_Form):  # handling the UI issue
             count += 1
             if count >= 10000:
                 try:
-                    if self.my_train.isRunning():  # check the thread is running properly or not
+                    # check the thread is running properly or not
+                    if self.my_train.isRunning():
                         self.my_train.requestInterruption()
                         self.my_train.quit()
                         self.my_train.wait()
@@ -405,22 +437,19 @@ class MainWindow(QWidget, Ui_Form):  # handling the UI issue
                 self.status = 0  # update the state
                 break
 
-    def showPic1(self, qImg):  # reveral the video data on screen 1
-        self.image_label.setPixmap(qImg)
+    def display_screen1(self, img):  # display the video data on screen 1
+        self.image_label.setPixmap(img)
 
-    def showPic2(self, qImg):  # reveral the video data on screen 2
-        self.image_label_2.setPixmap(qImg)
+    def show_pic2(self, img):  # display the video data on screen 2
+        self.image_label_2.setPixmap(img)
 
-    def hideAll(self):
+    def hide_all(self):
         self.image_label.clear()
         self.image_label_2.clear()
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    # 实例化界面
     window = MainWindow()
-    # 显示界面
     window.show()
-    # 阻塞，固定写法
     sys.exit(app.exec_())
