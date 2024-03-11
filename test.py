@@ -1,20 +1,7 @@
-from ctypes import *
-import time
+import data_segment
 
-dll = CDLL("./SDK/x64/DigitNoteUSBController.dll")
-
-print(dll.connectDevice())
-
-print(dll.switchToRealTimeMode())
-
-CallbackFunc = CFUNCTYPE(None, c_int, c_int, c_int)
-
-def OnProgressCallbackForRealTimePenDatas(x, y, pressure):
-    print("Received real-time pen data: x={}, y={}, pressure={}".format(x, y, pressure))
-
-c_callback_func = CallbackFunc(OnProgressCallbackForRealTimePenDatas)
-
-dll.SetCallBackForRealTimePenDatas(c_callback_func)
-
-while True:
-    time.sleep(1)
+if __name__ == '__main__':
+    file_path = './data/2024-03-08/Yeung Hiu Lam_001'
+    print('test start')
+    segment = data_segment.DataSegment(file_path)
+    segment.run_seg()

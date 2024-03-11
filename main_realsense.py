@@ -73,7 +73,7 @@ class Thread1(QThread):
         self.num = 0  # counter for the photo
         self.file_name = get_time()[:10]
         self.file_path = file_path
-        self.video_name = "1.mp4"
+        self.video_name = "video.mp4"
         self.video_path = os.path.join(self.file_path, self.video_name)
         self.videoWrite = cv2.VideoWriter(self.video_path, self.fourcc, 30,
                                           (960, 539))
@@ -246,7 +246,7 @@ class Thread2(QThread):  # handling the video data of the simple webcam
                                             QImage.Format_RGB888)
                     self.qtVideoStream.emit(QPixmap.fromImage(self.showImage))
                 else:
-                    self.cap = cv2.VideoCapture("1.mp4")
+                    self.cap = cv2.VideoCapture("video.mp4")
 
 
 class Thread3(QThread):
@@ -274,7 +274,6 @@ class Thread3(QThread):
         else:
             print("Connect handwriting failed")
 
-
     def run(self):
         def on_progress_callback_for_real_time_pen_datas(x, y, pressure):
             # print(x, y, pressure)
@@ -292,6 +291,7 @@ class Thread3(QThread):
         while True:
             if QThread.currentThread().isInterruptionRequested():
                 # release all the resource if the user want to stop
+                self.digit_note_controller.disconnectDevice()
                 self.d.emit("thread3 finished")
                 print("thread3 finish")
                 break
@@ -302,9 +302,10 @@ class MainWindow(QWidget, Ui_Form):
         super(MainWindow, self).__init__()
         self.setupUi(self)
         self.status = 0
-        self.pushButton.clicked.connect(self.test)
+        self.pushButton.clicked.connect(self.toggle_collecting)
         self.comboBox.activated[str].connect(self.on_activated)
         self.user_name = "Leung Yuk Wing"
+        self.file_path = None
         self.eyetracker_path = None
         self.realsense_path = None
         self.handwriting_path = None
@@ -330,16 +331,16 @@ class MainWindow(QWidget, Ui_Form):
                 # username format like that: xx_001, xx_002
                 num_participant += 1
         file_name = self.user_name + "_" + ("%03d" % (num_participant + 1))
-        file_path = os.path.join(root_date_file_path, file_name)
-        create_file_if_not_exists(file_path)
-        self.realsense_path = os.path.join(file_path, "realsense")
-        self.eyetracker_path = os.path.join(file_path, "eyetracker")
-        self.handwriting_path = os.path.join(file_path, "handwriting")
+        self.file_path = os.path.join(root_date_file_path, file_name)
+        create_file_if_not_exists(self.file_path)
+        self.realsense_path = os.path.join(self.file_path, "realsense")
+        self.eyetracker_path = os.path.join(self.file_path, "eyetracker")
+        self.handwriting_path = os.path.join(self.file_path, "handwriting")
         create_file_if_not_exists(self.realsense_path)
         create_file_if_not_exists(self.eyetracker_path)
         create_file_if_not_exists(self.handwriting_path)
 
-    def test(self):
+    def toggle_collecting(self):
         if self.status == 0:
             self.create_output_file()
             # create the thread for the eyeball tracker
@@ -353,7 +354,6 @@ class MainWindow(QWidget, Ui_Form):
             self.my_train2.qtVideoStream.connect(self.show_pic2)
             self.my_train2.d.connect(self.hide_all)
             self.my_train2.start()
-
 
             # create the thread for the pendo handwriting
             self.my_train3 = Thread3(self.handwriting_path)
@@ -385,6 +385,9 @@ class MainWindow(QWidget, Ui_Form):
                     self.my_train3.wait()
             except:
                 pass  # It can be done usually, so just pass
+
+            # Data segment TODO
+            # data_segment = data_segment(self.file_path)
 
             self.pushButton.setText("Start")
             self.status = 0  # update the state

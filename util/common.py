@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime
 
 
 def get_time():
@@ -15,3 +16,14 @@ def create_file_if_not_exists(file_path):
     else:
         print(file_path, " is exists")
         pass
+
+
+def find_csv_file(root_path):
+    for file in os.listdir(root_path):
+        if file.endswith('.csv'):
+            return os.path.join(root_path, file)
+    return None
+
+
+def convert_to_datetime(time_str):
+    return datetime.strptime(time_str, "%H:%M:%S.%f")
