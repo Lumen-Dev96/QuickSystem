@@ -14,16 +14,10 @@ python >= 3.7
 pip install -r requirements.txt
 ```
 
-### Compile and Hot-Reload for Development
+### Compile Pyqt5
 
 ```sh
-npm run dev
-```
-
-### Compile and Minify for Production
-
-```sh
-npm run build
+ pyuic5 -o .\Boccia_UI.py .\Boccia_UI.ui
 ```
 
 ### Import Data

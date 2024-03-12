@@ -29,7 +29,7 @@ class DataSegment:
         self.handwriting_txt_time_list = None
         self.keyframe_list = None
 
-    def set_time_file_path(self):
+    def set_file_path(self):
         # csv_file_path = self.find_csv_file(realsense_time_path)
         self.realsense_time_path = os.path.join(self.filepath, "realsense", "realsense_time.txt")
 
@@ -40,12 +40,14 @@ class DataSegment:
         self.handwriting_time_path = os.path.join(self.filepath, "handwriting", "handwriting_time.txt")
 
     def create_seg_file(self):
-        self.output_path = os.path.join(self.synchronize_filepath, "data.txt")
+        self.output_path = os.path.join(self.synchronize_filepath)
         create_file_if_not_exists(self.output_path)
 
     def run_seg(self):
-        self.set_time_file_path()
+        print('Start data processing...')
+        self.set_file_path()
         self.create_seg_file()
+        data = []
         # df = pd.read_csv(self.realsense_time)
         realsense_time = open(self.realsense_time_path, 'r', encoding='utf-8')
         eyetracker_time = open(self.eyetracker_time_path, 'r', encoding="utf-8")
@@ -55,75 +57,64 @@ class DataSegment:
         self.eyetracker_txt_time_list = [convert_to_datetime(line[-13:-1]) for line in eyetracker_time]
         self.realsense_txt_time_list = [convert_to_datetime(line[-13:-1]) for line in realsense_time]
         self.handwriting_txt_time_list = [convert_to_datetime(line[11:22]) for line in handwriting_time]
-
-        for timestamp in self.eyetracker_txt_time_list:
-            min_diff1 = min((abs(time - timestamp), index) for index, time in enumerate(self.realsense_txt_time_list))
-            min_diff2 = min((abs(time - timestamp), index) for index, time in enumerate(self.handwriting_txt_time_list))
-            realsense_time_index = min_diff1[1]
-            handwriting_time_index = min_diff1[2]
-
-        return
-
-        self.eyetracker_seg_index = []
-
-        for sub_keyframe_list in self.keyframe_list:
-            start_frame = convert_to_datetime(df.iloc[sub_keyframe_list[0], 1][-12:])
-            min_diff = min((abs(a - start_frame), i) for i, a in enumerate(self.eyetracker_txt_time_list))
-            star_index_in_eyetracker = min_diff[1]  # 输出最近元素在 listA 中的索引
-            try:
-                end_frame = convert_to_datetime(df.iloc[sub_keyframe_list[1] - 2, 1][-12:])
-                min_diff2 = min((abs(a - end_frame), i) for i, a in enumerate(self.eyetracker_txt_time_list))
-                end_index_in_eyetracker = min_diff2[1]  # 输出最近元素在 listA 中的索引
-            except:
-                end_frame = convert_to_datetime(df.iloc[-1, 1][-12:])
-                min_diff2 = min((abs(a - end_frame), i) for i, a in enumerate(self.eyetracker_txt_time_list))
-                end_index_in_eyetracker = min_diff2[1]
-            self.eyetracker_seg_index.append((star_index_in_eyetracker, end_index_in_eyetracker))
-        print("eyetracker Seg index： ", self.eyetracker_seg_index)
-
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        video_writer = {}
-        for i in range(len(self.eyetracker_seg_index)):
-            # 将原始变量赋值给新变量名
-            name = str("%03d" % i) + ".mp4"
-            video_name = os.path.join(self.video_seg_root_path, name)
-            video_writer[i] = cv2.VideoWriter(video_name, fourcc, 60, (960, 539))
-
-        cap = cv2.VideoCapture(self.eyetracker_video_path)
-        frame_num = 0
-        segment_num = 0
-
-        while True:
-            _, frame = cap.read()
-            if segment_num < len(self.eyetracker_seg_index):
-                if frame_num >= int(self.eyetracker_seg_index[segment_num][0]) and frame_num < int(
-                        self.eyetracker_seg_index[segment_num][1]):
-                    video_writer[segment_num].write(frame)
-                    # print("video segment processing")
-            else:
-                break
-            frame_num += 1
-            if frame_num > int(self.eyetracker_seg_index[segment_num][1]):
-                segment_num += 1
-
-        for i in range(len(self.eyetracker_seg_index)):
-            new_txt_name = "txt_writer_{}".format(i)
-            name = str("%03d" % i) + ".txt"
-            txt_name = os.path.join(self.output_path, name)
-            file_writer = open(file=txt_name, mode="w", encoding="utf-8")
-            # globals()[new_txt_name] = open(file=txt_name, mode="w")
-            line_num = 0
-            with open(file=self.eyetracker_gaze_path, mode="r", encoding="utf-8") as f_eyetracker_gaze:
-                start_gaze = self.eyetracker_seg_index[i][0]
-                end_gaze = self.eyetracker_seg_index[i][1]
-                eyetracker_gaze_position_lines = f_eyetracker_gaze.readlines()
-                for eyetracker_gaze_position_line in eyetracker_gaze_position_lines:
-                    if line_num >= int(start_gaze) and line_num < int(end_gaze):
-                        file_writer.write(eyetracker_gaze_position_line)
-                        # print("gaze segment processing")
-                    if line_num > int(end_gaze):
-                        break
-
-                    line_num += 1
-
+        realsense_time.close()
         eyetracker_time.close()
+        handwriting_time.close()
+
+        realsense_time_index_list = []
+        for timestamp in self.eyetracker_txt_time_list:
+            # min_diff return 0 -> microseconds, 1 -> index
+            min_diff = min((abs(time - timestamp), index) for index, time in enumerate(self.realsense_txt_time_list))
+            realsense_time_index_list.append(min_diff[1])
+
+        eyetracker_time_index_list = []
+        for timestamp in self.handwriting_txt_time_list:
+            # min_diff return 0 -> microseconds, 1 -> index
+            min_diff = min((abs(time - timestamp), index) for index, time in enumerate(self.eyetracker_txt_time_list))
+            eyetracker_time_index_list.append(min_diff[1])
+
+        # Read eyetracker gaze data
+        eyetracker_gaze = []
+        with open(self.eyetracker_gaze_path, 'r') as file:
+            for line in file:
+                line = line.strip()
+                items = line.split()
+                eyetracker_gaze.append(items)
+
+        # Read handwriting data
+        handwriting_data = []
+        with open(self.handwriting_time_path, 'r') as file:
+            for line in file:
+                line = line.strip()
+                row = [item.strip() for item in line.split(',')]
+                handwriting_data.append(row)
+
+        # Read eyetracker time data
+        eyetracker_time = []
+        with open(self.eyetracker_time_path, 'r') as file:
+            lines = file.readlines()
+            for line in lines:
+                line = line.strip()
+                eyetracker_time.append(line)
+
+        line = ""
+        for index, timestamp in enumerate(eyetracker_time):
+            gaze1 = eyetracker_gaze[index][0]
+            gaze2 = eyetracker_gaze[index][1]
+
+            if index in eyetracker_time_index_list:
+                x = handwriting_data[index][1]
+                y = handwriting_data[index][2]
+                pressure = handwriting_data[index][3]
+            else:
+                x = None
+                y = None
+                pressure = None
+
+            line += "{}, {}, {}, {}, {}, {}\n".format(timestamp, gaze1, gaze2, x, y, pressure)
+
+        output_data_path = os.path.join(self.synchronize_filepath, 'data.txt')
+        with open(output_data_path, 'w') as file:
+            file.write(line)
+
+        print('Data processed successfully!')

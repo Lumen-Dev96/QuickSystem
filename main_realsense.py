@@ -117,9 +117,9 @@ class Thread1(QThread):
 
     def run(self):
         with open(file=self.time_txt_path, mode="w", encoding="utf-8") as f1:  # write down the abs time
-            f1.write("date time\n")
+            # f1.write("date time\n")
             with open(file=self.txt_path, mode="w", encoding="utf-8") as f:  # write down the position of the gaze
-                while 1:
+                while True:
                     # ref, self.frame = self.cap.read()
                     # Save the video file if the user want to stop
                     if QThread.currentThread().isInterruptionRequested():
@@ -263,6 +263,8 @@ class Thread3(QThread):
         self.time_txt_name = "handwriting_time.txt"
         self.time_txt_path = os.path.join(self.file_path, self.time_txt_name)
 
+        self.line = ""
+
         self.digit_note_controller = CDLL("./SDK/x64/DigitNoteUSBController.dll")
 
         if self.digit_note_controller.connectDevice() == 0:
@@ -276,11 +278,9 @@ class Thread3(QThread):
 
     def run(self):
         def on_progress_callback_for_real_time_pen_datas(x, y, pressure):
+            now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+            self.line += "{}, {}, {}, {}\n".format(now_time, x, y, pressure)
             # print(x, y, pressure)
-            with open(file=self.time_txt_path, mode="a", encoding="utf-8") as file:
-                now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-                line = "{}, {}, {}, {}\n".format(now_time, x, y, pressure)
-                file.write(line)
 
         callback_func = CFUNCTYPE(None, c_int, c_int, c_int)
 
@@ -290,6 +290,8 @@ class Thread3(QThread):
 
         while True:
             if QThread.currentThread().isInterruptionRequested():
+                with open(file=self.time_txt_path, mode="a", encoding="utf-8") as file:
+                    file.write(self.line)
                 # release all the resource if the user want to stop
                 self.digit_note_controller.disconnectDevice()
                 self.d.emit("thread3 finished")
