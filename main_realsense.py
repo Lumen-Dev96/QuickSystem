@@ -141,7 +141,6 @@ class Thread1(QThread):
                                 msg["__raw_data__"][0], dtype=np.uint8
                             ).reshape(msg["height"], msg["width"], 3)
                     if (self.recent_world is not None):
-                        # print(self.num)
                         self.num += 1  # count the photo that we collected
                         # if self.num % 2 ==0:
                         #     self.videoWrite.write(self.recent_world)
@@ -251,7 +250,7 @@ class Thread2(QThread):  # handling the video data of the simple webcam
 
 class Thread3(QThread):
     # handling the handwriting data of pendo board
-    qtVideoStream = pyqtSignal(QPixmap)
+    qtTrackStream = pyqtSignal(int, int)
     d = pyqtSignal(str)
 
     def __init__(self, file_path):
@@ -280,6 +279,7 @@ class Thread3(QThread):
         def on_progress_callback_for_real_time_pen_datas(x, y, pressure):
             now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             self.line += "{}, {}, {}, {}\n".format(now_time, x, y, pressure)
+            self.qtTrackStream.emit(x, y)
             # print(x, y, pressure)
 
         callback_func = CFUNCTYPE(None, c_int, c_int, c_int)
@@ -316,6 +316,19 @@ class MainWindow(QWidget, Ui_Form):
         self.my_train2 = None
         self.my_train3 = None
 
+        # use to draw pen track
+        self.coordinates = []
+        self.initUI()
+
+    def initUI(self):
+        layout = QHBoxLayout(self)
+        handwriting_view = HandwritingView()
+        layout.addWidget(handwriting_view)
+
+        self.setLayout(layout)
+        self.setGeometry(0, 0, 1214, 854)
+        self.setWindowTitle("Multimodal Intelligent Handwriting Assessment Platform")
+
     def on_activated(self, text):
         self.user_name = text
 
@@ -345,40 +358,42 @@ class MainWindow(QWidget, Ui_Form):
     def toggle_collecting(self):
         if self.status == 0:
             self.create_output_file()
-            # create the thread for the eyeball tracker
-            self.my_train = Thread1(self.eyetracker_path)
-            self.my_train.qtVideoStream.connect(self.display_screen1)
-            self.my_train.d.connect(self.hide_all)
-            self.my_train.start()
-
-            # create the thread for the simple webcam
-            self.my_train2 = Thread2(self.realsense_path)
-            self.my_train2.qtVideoStream.connect(self.show_pic2)
-            self.my_train2.d.connect(self.hide_all)
-            self.my_train2.start()
+            # # create the thread for the eyeball tracker
+            # self.my_train = Thread1(self.eyetracker_path)
+            # self.my_train.qtVideoStream.connect(self.display_screen1)
+            # self.my_train.d.connect(self.hide_all)
+            # self.my_train.start()
+            #
+            # # create the thread for the simple webcam
+            # self.my_train2 = Thread2(self.realsense_path)
+            # self.my_train2.qtVideoStream.connect(self.show_pic2)
+            # self.my_train2.d.connect(self.hide_all)
+            # self.my_train2.start()
 
             # create the thread for the pendo handwriting
             self.my_train3 = Thread3(self.handwriting_path)
+            self.my_train3.qtTrackStream.connect(self.show_pic3)
+            self.my_train3.d.connect(self.hide_all)
             self.my_train3.start()
 
             self.status = 1  # indicate the thread is running
             self.pushButton.setText("Stop")
         else:
-            try:
-                if self.my_train.isRunning():  # check the thread is running properly or not
-                    self.my_train.requestInterruption()
-                    self.my_train.quit()
-                    self.my_train.wait()
-            except:
-                pass  # It can be done usually, so just pass
-
-            try:
-                if self.my_train2.isRunning():
-                    self.my_train2.requestInterruption()
-                    self.my_train2.quit()
-                    self.my_train2.wait()
-            except:
-                pass  # It can be done usually, so just pass
+            # try:
+            #     if self.my_train.isRunning():  # check the thread is running properly or not
+            #         self.my_train.requestInterruption()
+            #         self.my_train.quit()
+            #         self.my_train.wait()
+            # except:
+            #     pass  # It can be done usually, so just pass
+            #
+            # try:
+            #     if self.my_train2.isRunning():
+            #         self.my_train2.requestInterruption()
+            #         self.my_train2.quit()
+            #         self.my_train2.wait()
+            # except:
+            #     pass  # It can be done usually, so just pass
 
             try:
                 if self.my_train3.isRunning():
@@ -400,9 +415,14 @@ class MainWindow(QWidget, Ui_Form):
     def show_pic2(self, img):  # display the video data on screen 2
         self.image_label_2.setPixmap(img)
 
+    def show_pic3(self, x, y):  # display the pen data on screen 3
+        self.coordinates.append((x, y))
+        self.update()
+
     def hide_all(self):
         self.image_label.clear()
         self.image_label_2.clear()
+        self.image_label_3.clear()
 
 
 if __name__ == "__main__":
