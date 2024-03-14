@@ -27,3 +27,12 @@ def find_csv_file(root_path):
 
 def convert_to_datetime(time_str):
     return datetime.strptime(time_str, "%H:%M:%S.%f")
+
+
+def check_file_exists(file_path):
+    if os.path.exists(file_path):
+        # print(f"{file_path} exist")
+        return True
+    else:
+        # print(f"{file_path} not exist")
+        return False
