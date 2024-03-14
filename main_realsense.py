@@ -250,7 +250,7 @@ class Thread2(QThread):  # handling the video data of the simple webcam
 
 class Thread3(QThread):
     # handling the handwriting data of pendo board
-    qtTrackStream = pyqtSignal(int, int)
+    qtTrackStream = pyqtSignal(int, int, int)
     d = pyqtSignal(str)
 
     def __init__(self, file_path):
@@ -279,7 +279,7 @@ class Thread3(QThread):
         def on_progress_callback_for_real_time_pen_datas(x, y, pressure):
             now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             self.line += "{}, {}, {}, {}\n".format(now_time, x, y, pressure)
-            self.qtTrackStream.emit(x, y)
+            self.qtTrackStream.emit(x, y, pressure)
             # print(x, y, pressure)
 
         callback_func = CFUNCTYPE(None, c_int, c_int, c_int)
@@ -316,18 +316,10 @@ class MainWindow(QWidget, Ui_Form):
         self.my_train2 = None
         self.my_train3 = None
 
-        # use to draw pen track
-        self.coordinates = []
-        self.initUI()
-
-    def initUI(self):
-        layout = QHBoxLayout(self)
-        handwriting_view = HandwritingView()
-        layout.addWidget(handwriting_view)
-
-        self.setLayout(layout)
-        self.setGeometry(0, 0, 1214, 854)
-        self.setWindowTitle("Multimodal Intelligent Handwriting Assessment Platform")
+        self.pixmap = None
+        self.pre_x = None
+        self.pre_y = None
+        self.pre_p = 0
 
     def on_activated(self, text):
         self.user_name = text
@@ -415,9 +407,29 @@ class MainWindow(QWidget, Ui_Form):
     def show_pic2(self, img):  # display the video data on screen 2
         self.image_label_2.setPixmap(img)
 
-    def show_pic3(self, x, y):  # display the pen data on screen 3
-        self.coordinates.append((x, y))
-        self.update()
+    def show_pic3(self, x, y, pressure):  # display the pen data on screen 3
+        if self.pixmap is None:
+            self.pixmap = QPixmap(self.image_label_3.size())
+            self.pixmap.fill(Qt.transparent)
+
+        painter = QPainter(self.pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        # 设置绘图的画笔颜色和宽度
+        pen = QPen(Qt.black, 2)
+        painter.begin(self)
+        painter.setPen(pen)
+        x = x / 100
+        y = y / 100
+        if pressure > 0 and self.pre_p > 0:
+            # painter.drawPoint(x, y)
+            painter.drawLine(self.pre_x, self.pre_y, x, y)
+
+        self.pre_x = x
+        self.pre_y = y
+        self.pre_p = pressure
+
+        painter.end()
+        self.image_label_3.setPixmap(self.pixmap)
 
     def hide_all(self):
         self.image_label.clear()
