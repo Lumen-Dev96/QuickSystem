@@ -350,17 +350,17 @@ class MainWindow(QWidget, Ui_Form):
     def toggle_collecting(self):
         if self.status == 0:
             self.create_output_file()
-            # # create the thread for the eyeball tracker
-            # self.my_train = Thread1(self.eyetracker_path)
-            # self.my_train.qtVideoStream.connect(self.display_screen1)
-            # self.my_train.d.connect(self.hide_all)
-            # self.my_train.start()
-            #
-            # # create the thread for the simple webcam
-            # self.my_train2 = Thread2(self.realsense_path)
-            # self.my_train2.qtVideoStream.connect(self.show_pic2)
-            # self.my_train2.d.connect(self.hide_all)
-            # self.my_train2.start()
+            # create the thread for the eyeball tracker
+            self.my_train = Thread1(self.eyetracker_path)
+            self.my_train.qtVideoStream.connect(self.display_screen1)
+            self.my_train.d.connect(self.hide_all)
+            self.my_train.start()
+
+            # create the thread for the simple webcam
+            self.my_train2 = Thread2(self.realsense_path)
+            self.my_train2.qtVideoStream.connect(self.show_pic2)
+            self.my_train2.d.connect(self.hide_all)
+            self.my_train2.start()
 
             # create the thread for the pendo handwriting
             self.my_train3 = Thread3(self.handwriting_path)
@@ -371,21 +371,21 @@ class MainWindow(QWidget, Ui_Form):
             self.status = 1  # indicate the thread is running
             self.pushButton.setText("Stop")
         else:
-            # try:
-            #     if self.my_train.isRunning():  # check the thread is running properly or not
-            #         self.my_train.requestInterruption()
-            #         self.my_train.quit()
-            #         self.my_train.wait()
-            # except:
-            #     pass  # It can be done usually, so just pass
-            #
-            # try:
-            #     if self.my_train2.isRunning():
-            #         self.my_train2.requestInterruption()
-            #         self.my_train2.quit()
-            #         self.my_train2.wait()
-            # except:
-            #     pass  # It can be done usually, so just pass
+            try:
+                if self.my_train.isRunning():  # check the thread is running properly or not
+                    self.my_train.requestInterruption()
+                    self.my_train.quit()
+                    self.my_train.wait()
+            except:
+                pass  # It can be done usually, so just pass
+
+            try:
+                if self.my_train2.isRunning():
+                    self.my_train2.requestInterruption()
+                    self.my_train2.quit()
+                    self.my_train2.wait()
+            except:
+                pass  # It can be done usually, so just pass
 
             try:
                 if self.my_train3.isRunning():
@@ -419,10 +419,10 @@ class MainWindow(QWidget, Ui_Form):
         y = y / 100
         if pressure > 0 and self.pre_p > 0:
             # painter.drawPoint(x, y)
-            painter.drawLine(self.pre_x, self.pre_y, x, y)
+            painter.drawLine(self.pre_x, self.pre_y, int(x), int(y))
 
-        self.pre_x = x
-        self.pre_y = y
+        self.pre_x = int(x)
+        self.pre_y = int(y)
         self.pre_p = pressure
 
         painter.end()
