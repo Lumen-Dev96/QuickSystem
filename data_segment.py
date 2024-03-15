@@ -1,5 +1,4 @@
 import os
-import cv2
 from util.common import create_file_if_not_exists, convert_to_datetime
 
 

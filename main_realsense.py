@@ -395,9 +395,6 @@ class MainWindow(QWidget, Ui_Form):
             except:
                 pass  # It can be done usually, so just pass
 
-            # Data segment TODO
-            # data_segment = data_segment(self.file_path)
-
             self.pushButton.setText("Start")
             self.status = 0  # update the state
 

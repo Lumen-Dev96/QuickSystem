@@ -34,20 +34,24 @@ def process_video(video_path):
             cv2.imshow("img", image)
             cv2.waitKey(1)
 
-            key_points = result[0].keypoints.numpy()
+            key_points = result[0].keypoints.cpu().numpy()
 
             if key_points.has_visible:
                 for index, value in enumerate(key_points.data):
-                    time_element = ET.SubElement(root, "keypoint")
+                    keypoint_element = ET.SubElement(root, "keypoint")
+                    time_element = ET.SubElement(keypoint_element, "timestamp")
                     time_element.text = eyetracker_time[index]
 
                     for item in value:
-                        x_element = ET.SubElement(time_element, "x")
-                        x_element.text = str(item[0])
-                        y_element = ET.SubElement(time_element, "y")
-                        y_element.text = str(item[1])
-                        confidence_element = ET.SubElement(time_element, "confidence")
-                        confidence_element.text = str(item[2])
+                        if item[2] >= 0.5:
+                            # confidence >= 0.5
+                            position_element = ET.SubElement(keypoint_element, "position")
+                            x_element = ET.SubElement(position_element, "x")
+                            x_element.text = str(item[0])
+                            y_element = ET.SubElement(position_element, "y")
+                            y_element.text = str(item[1])
+                            confidence_element = ET.SubElement(position_element, "confidence")
+                            confidence_element.text = str(item[2])
 
             # print("key points:", key_points)
             end = time.time()
