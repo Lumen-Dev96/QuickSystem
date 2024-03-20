@@ -19,7 +19,7 @@ from ctypes import *
 
 class Thread1(QThread):
     # this thread used to handle the eyeball tracker
-    qtVideoStream = pyqtSignal(QPixmap)
+    qtVideoStream = pyqtSignal(QPixmap, int, int)
     d = pyqtSignal(str)
 
     def __init__(self, file_path):
@@ -75,8 +75,7 @@ class Thread1(QThread):
         self.file_path = file_path
         self.video_name = "video.mp4"
         self.video_path = os.path.join(self.file_path, self.video_name)
-        self.videoWrite = cv2.VideoWriter(self.video_path, self.fourcc, 30,
-                                          (960, 539))
+        self.videoWrite = cv2.VideoWriter(self.video_path, self.fourcc, 30, (960, 539))
         self.eyetracker_txt_name = "gaze.txt"
         self.time_txt_name = "time.txt"
         self.txt_path = os.path.join(self.file_path, self.eyetracker_txt_name)
@@ -165,11 +164,11 @@ class Thread1(QThread):
                             f.write(line)
                             now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "\n"
                             f1.write(now_time)
-                        self.show = cv2.cvtColor(self.show, cv2.COLOR_BGR2RGB)  # 视频色彩转换回RGB，这样才是现实的颜色
+                        self.show = cv2.cvtColor(self.show, cv2.COLOR_BGR2RGB)  # 视频色彩转换回 RGB，这样才是现实的颜色
 
                         self.showImage = QImage(self.show.data, self.show.shape[1], self.show.shape[0],
                                                 QImage.Format_RGB888)
-                        self.qtVideoStream.emit(QPixmap.fromImage(self.showImage))
+                        self.qtVideoStream.emit(QPixmap.fromImage(self.showImage), int(txt_x), int(txt_y))
 
 
 class Camera(object):
@@ -212,7 +211,7 @@ class Thread2(QThread):  # handling the video data of the simple webcam
         # 初始化参数
         self.fps, self.w, self.h = 30, 960, 540
         self.mp4 = cv2.VideoWriter_fourcc(*'mp4v')  # 视频格式
-        self.wr = cv2.VideoWriter(self.video_path, self.mp4, self.fps, (self.w, self.h), isColor=True)  # 视频保存而建立对象
+        self.wr = cv2.VideoWriter(self.video_path, self.mp4, self.fps, (self.w, self.h), isColor=True)
         self.cam = Camera(self.w, self.h, self.fps)
         # 保存绝对时间戳
         self.realsense_time_txt_name = "realsense_time.txt"
@@ -220,7 +219,7 @@ class Thread2(QThread):  # handling the video data of the simple webcam
 
     def run(self):
         with open(file=self.realsense_txt_path, mode="w", encoding="utf-8") as f2:
-            while 1:
+            while True:
                 color_image = self.cam.get_frame()
                 # print(self.name)
 
@@ -232,9 +231,6 @@ class Thread2(QThread):  # handling the video data of the simple webcam
                     print("finish")
                     break
                 if color_image is not None:
-                    # path = r"C:\Users\90335\Desktop\1"
-                    # pic_name = str(self.name) + ".png"
-                    # new_path = os.path.join(path,pic_name)
                     # self.show = cv2.resize(self.frame, (960,600))  # 把读到的帧的大小重新设置为 640x480
                     self.wr.write(color_image)
                     now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "\n"
@@ -355,16 +351,16 @@ class MainWindow(QWidget, Ui_Form):
             self.my_train.qtVideoStream.connect(self.display_screen1)
             self.my_train.d.connect(self.hide_all)
             self.my_train.start()
-
-            # create the thread for the simple webcam
-            self.my_train2 = Thread2(self.realsense_path)
-            self.my_train2.qtVideoStream.connect(self.show_pic2)
-            self.my_train2.d.connect(self.hide_all)
-            self.my_train2.start()
+            #
+            # # create the thread for the simple webcam
+            # self.my_train2 = Thread2(self.realsense_path)
+            # self.my_train2.qtVideoStream.connect(self.display_screen2)
+            # self.my_train2.d.connect(self.hide_all)
+            # self.my_train2.start()
 
             # create the thread for the pendo handwriting
             self.my_train3 = Thread3(self.handwriting_path)
-            self.my_train3.qtTrackStream.connect(self.show_pic3)
+            self.my_train3.qtTrackStream.connect(self.display_screen3)
             self.my_train3.d.connect(self.hide_all)
             self.my_train3.start()
 
@@ -378,14 +374,14 @@ class MainWindow(QWidget, Ui_Form):
                     self.my_train.wait()
             except:
                 pass  # It can be done usually, so just pass
-
-            try:
-                if self.my_train2.isRunning():
-                    self.my_train2.requestInterruption()
-                    self.my_train2.quit()
-                    self.my_train2.wait()
-            except:
-                pass  # It can be done usually, so just pass
+            #
+            # try:
+            #     if self.my_train2.isRunning():
+            #         self.my_train2.requestInterruption()
+            #         self.my_train2.quit()
+            #         self.my_train2.wait()
+            # except:
+            #     pass  # It can be done usually, so just pass
 
             try:
                 if self.my_train3.isRunning():
@@ -398,20 +394,21 @@ class MainWindow(QWidget, Ui_Form):
             self.pushButton.setText("Start")
             self.status = 0  # update the state
 
-    def display_screen1(self, img):  # display the video data on screen 1
+    def display_screen1(self, img, x, y):  # display the video data on screen 1
         self.image_label.setPixmap(img)
+        self.label_3.setText("gaze x:{}\ngaze y: {}".format(x, y))
+        # self.label_3.setMinimumHeight(self.image_label.height())
 
-    def show_pic2(self, img):  # display the video data on screen 2
+    def display_screen2(self, img):  # display the video data on screen 2
         self.image_label_2.setPixmap(img)
 
-    def show_pic3(self, x, y, pressure):  # display the pen data on screen 3
+    def display_screen3(self, x, y, pressure):  # display the pen data on screen 3
         if self.pixmap is None:
             self.pixmap = QPixmap(self.image_label_3.size())
             self.pixmap.fill(Qt.transparent)
 
         painter = QPainter(self.pixmap)
         painter.setRenderHint(QPainter.Antialiasing)
-        # 设置绘图的画笔颜色和宽度
         pen = QPen(Qt.black, 2)
         painter.begin(self)
         painter.setPen(pen)
@@ -427,6 +424,7 @@ class MainWindow(QWidget, Ui_Form):
 
         painter.end()
         self.image_label_3.setPixmap(self.pixmap)
+        self.label_2.setText("x:{}\ny: {}\npressure:{}".format(x, y, pressure))
 
     def hide_all(self):
         self.image_label.clear()
