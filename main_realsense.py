@@ -229,7 +229,7 @@ class Thread2(QThread):  # handling the video data of the simple webcam
         self.realsense_time_txt_name = "realsense_time.txt"
         self.realsense_txt_path = os.path.join(self.file_path, self.realsense_time_txt_name)
 
-        self.model_path = '../model/yolov8x-pose.pt'
+        self.model_path = './model/yolov8n-pose.pt'
         self.model = None
 
     def run(self):
@@ -248,15 +248,14 @@ class Thread2(QThread):  # handling the video data of the simple webcam
                     break
 
                 if color_image is not None:
-                    # result = self.model.predict(color_image, conf=0.5)
-                    # image = result[0].plot()
-                    # image = cv2.resize(image, (int(image.shape[1] * 0.5), int(image.shape[0] * 0.5)))
-                    # cv2.imshow("img", image)
-
                     self.wr.write(color_image)
                     now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "\n"
                     f2.write(now_time)
                     color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
+                    # result = self.model.predict(color_image, conf=0.5)
+                    # skeleton_image = result[0].plot()
+                    # print(skeleton_image)
+                    # cv2.imshow('skeleton', skeleton_image)
 
                     self.showImage = QImage(color_image, color_image.shape[1], color_image.shape[0],
                                             QImage.Format_RGB888)
