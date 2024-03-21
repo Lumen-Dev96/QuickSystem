@@ -13,6 +13,7 @@ import os
 import pyrealsense2 as rs
 import datetime
 from util.common import create_file_if_not_exists, get_time
+from ultralytics import YOLO
 
 from ctypes import *
 
@@ -21,6 +22,11 @@ class Thread1(QThread):
     # this thread used to handle the eyeball tracker
     qtVideoStream = pyqtSignal(QPixmap, int, int)
     d = pyqtSignal(str)
+    # before is 960
+    VIDEO_WIDTH = 640
+    # before is 539
+    VIDEO_HEIGHT = 360
+    VIDEO_FRAME_RATE = 30
 
     def __init__(self, file_path):
         super(Thread1, self).__init__()
@@ -60,6 +66,7 @@ class Thread1(QThread):
         # recv just pupil/gaze/notifications
         self.sub.setsockopt_string(zmq.SUBSCRIBE, "frame.")
         self.recent_world = None
+        self.recent_world_copy = None
         self.FRAME_FORMAT = "bgr"
         self.notification = {"subject": "frame_publishing.set_format", "format": self.FRAME_FORMAT}
         self.notify()
@@ -75,7 +82,8 @@ class Thread1(QThread):
         self.file_path = file_path
         self.video_name = "video.mp4"
         self.video_path = os.path.join(self.file_path, self.video_name)
-        self.videoWrite = cv2.VideoWriter(self.video_path, self.fourcc, 30, (960, 539))
+        self.videoWrite = cv2.VideoWriter(self.video_path, self.fourcc, self.VIDEO_FRAME_RATE,
+                                          (self.VIDEO_WIDTH, self.VIDEO_HEIGHT))
         self.eyetracker_txt_name = "gaze.txt"
         self.time_txt_name = "time.txt"
         self.txt_path = os.path.join(self.file_path, self.eyetracker_txt_name)
@@ -139,31 +147,36 @@ class Thread1(QThread):
                             self.recent_world = np.frombuffer(
                                 msg["__raw_data__"][0], dtype=np.uint8
                             ).reshape(msg["height"], msg["width"], 3)
-                    if (self.recent_world is not None):
+                            self.recent_world_copy = np.empty_like(self.recent_world)
+
+                    if self.recent_world is not None:
                         self.num += 1  # count the photo that we collected
-                        # if self.num % 2 ==0:
-                        #     self.videoWrite.write(self.recent_world)
-                        topic2 = self.sub2.recv_string()
 
+                        topic2 = self.sub2.recv_string()  # can not delete, why?
                         msg2 = self.sub2.recv()
-
                         msg2 = loads(msg2, raw=False)
 
                         point_x = max(0, msg2['norm_pos'][0])
                         point_y = max(0, msg2['norm_pos'][1])
+
+                        # draw the eye focus point
                         circle_x = point_x * self.recent_world.shape[1]
                         circle_y = self.recent_world.shape[0] - point_y * self.recent_world.shape[0]
-                        # cv2.circle(self.recent_world, (int(circle_x), int(circle_y)), 10, (0, 0, 255), 5)
-                        ##################################################
-                        self.show = cv2.resize(self.recent_world, (960, 539))  # 把读到的帧的大小重新设置为 640x480
-                        if True:  # reduce the size of the video file by half because the frame rate is too high
-                            self.videoWrite.write(self.show)
-                            txt_x = point_x * 960
-                            txt_y = 539 - point_y * 539
-                            line = str(int(txt_x)) + " " + str(int(txt_y)) + "\n"
-                            f.write(line)
-                            now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "\n"
-                            f1.write(now_time)
+                        np.copyto(self.recent_world_copy, self.recent_world)
+                        # color parameters order: b, g, r
+                        cv2.circle(self.recent_world_copy, (int(circle_x), int(circle_y)), 10, (95, 48, 233), 4)
+
+                        # resize the video frame
+                        self.show = cv2.resize(self.recent_world_copy, (self.VIDEO_WIDTH, self.VIDEO_HEIGHT))
+                        # reduce the size of the video file by half because the frame rate is too high
+                        self.videoWrite.write(self.show)
+                        txt_x = point_x * self.VIDEO_WIDTH
+                        txt_y = self.VIDEO_HEIGHT - point_y * self.VIDEO_HEIGHT
+                        line = str(int(txt_x)) + " " + str(int(txt_y)) + "\n"
+                        f.write(line)
+                        now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "\n"
+                        f1.write(now_time)
+
                         self.show = cv2.cvtColor(self.show, cv2.COLOR_BGR2RGB)  # 视频色彩转换回 RGB，这样才是现实的颜色
 
                         self.showImage = QImage(self.show.data, self.show.shape[1], self.show.shape[0],
@@ -207,17 +220,20 @@ class Thread2(QThread):  # handling the video data of the simple webcam
         self.file_path = file_path
         self.video_name = "video.mp4"
         self.video_path = os.path.join(self.file_path, self.video_name)
-        # 视频保存路径
-        # 初始化参数
-        self.fps, self.w, self.h = 30, 960, 540
+        # Initial global parameters
+        self.fps, self.w, self.h = 30, 640, 360
         self.mp4 = cv2.VideoWriter_fourcc(*'mp4v')  # 视频格式
         self.wr = cv2.VideoWriter(self.video_path, self.mp4, self.fps, (self.w, self.h), isColor=True)
         self.cam = Camera(self.w, self.h, self.fps)
-        # 保存绝对时间戳
+
         self.realsense_time_txt_name = "realsense_time.txt"
         self.realsense_txt_path = os.path.join(self.file_path, self.realsense_time_txt_name)
 
+        self.model_path = '../model/yolov8x-pose.pt'
+        self.model = None
+
     def run(self):
+        self.model = YOLO(self.model_path)
         with open(file=self.realsense_txt_path, mode="w", encoding="utf-8") as f2:
             while True:
                 color_image = self.cam.get_frame()
@@ -230,12 +246,17 @@ class Thread2(QThread):  # handling the video data of the simple webcam
                     self.d.emit("finished")
                     print("finish")
                     break
+
                 if color_image is not None:
-                    # self.show = cv2.resize(self.frame, (960,600))  # 把读到的帧的大小重新设置为 640x480
+                    # result = self.model.predict(color_image, conf=0.5)
+                    # image = result[0].plot()
+                    # image = cv2.resize(image, (int(image.shape[1] * 0.5), int(image.shape[0] * 0.5)))
+                    # cv2.imshow("img", image)
+
                     self.wr.write(color_image)
                     now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "\n"
                     f2.write(now_time)
-                    color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)  # 视频色彩转换回RGB，这样才是现实的颜色
+                    color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
 
                     self.showImage = QImage(color_image, color_image.shape[1], color_image.shape[0],
                                             QImage.Format_RGB888)
@@ -346,23 +367,36 @@ class MainWindow(QWidget, Ui_Form):
     def toggle_collecting(self):
         if self.status == 0:
             self.create_output_file()
-            # create the thread for the eyeball tracker
-            self.my_train = Thread1(self.eyetracker_path)
-            self.my_train.qtVideoStream.connect(self.display_screen1)
-            self.my_train.d.connect(self.hide_all)
-            self.my_train.start()
-            #
-            # # create the thread for the simple webcam
-            # self.my_train2 = Thread2(self.realsense_path)
-            # self.my_train2.qtVideoStream.connect(self.display_screen2)
-            # self.my_train2.d.connect(self.hide_all)
-            # self.my_train2.start()
 
-            # create the thread for the pendo handwriting
-            self.my_train3 = Thread3(self.handwriting_path)
-            self.my_train3.qtTrackStream.connect(self.display_screen3)
-            self.my_train3.d.connect(self.hide_all)
-            self.my_train3.start()
+            try:
+                # create the thread for the eyeball tracker
+                self.my_train = Thread1(self.eyetracker_path)
+                self.my_train.qtVideoStream.connect(self.display_screen1)
+                self.my_train.d.connect(self.hide_all)
+                self.my_train.start()
+            except:
+                print('Eyetracker not set up')
+                pass
+
+            try:
+                # create the thread for the simple webcam
+                self.my_train2 = Thread2(self.realsense_path)
+                self.my_train2.qtVideoStream.connect(self.display_screen2)
+                self.my_train2.d.connect(self.hide_all)
+                self.my_train2.start()
+            except:
+                print('Camera not set up')
+                pass
+
+            try:
+                # create the thread for the pendo handwriting
+                self.my_train3 = Thread3(self.handwriting_path)
+                self.my_train3.qtTrackStream.connect(self.display_screen3)
+                self.my_train3.d.connect(self.hide_all)
+                self.my_train3.start()
+            except:
+                print('Handwriting not set up')
+                pass
 
             self.status = 1  # indicate the thread is running
             self.pushButton.setText("Stop")
@@ -374,14 +408,14 @@ class MainWindow(QWidget, Ui_Form):
                     self.my_train.wait()
             except:
                 pass  # It can be done usually, so just pass
-            #
-            # try:
-            #     if self.my_train2.isRunning():
-            #         self.my_train2.requestInterruption()
-            #         self.my_train2.quit()
-            #         self.my_train2.wait()
-            # except:
-            #     pass  # It can be done usually, so just pass
+
+            try:
+                if self.my_train2.isRunning():
+                    self.my_train2.requestInterruption()
+                    self.my_train2.quit()
+                    self.my_train2.wait()
+            except:
+                pass  # It can be done usually, so just pass
 
             try:
                 if self.my_train3.isRunning():
