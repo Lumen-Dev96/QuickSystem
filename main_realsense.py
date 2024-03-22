@@ -7,6 +7,7 @@ from PyQt5.QtGui import *
 from Boccia_UI import *
 import cv2
 import zmq
+import math
 from msgpack import unpackb, packb, loads
 import numpy as np
 import os
@@ -16,6 +17,7 @@ from util.common import create_file_if_not_exists, get_time
 from ultralytics import YOLO
 
 from ctypes import *
+import xml.etree.ElementTree as ElementTree
 
 
 class Thread1(QThread):
@@ -185,7 +187,7 @@ class Thread1(QThread):
 
 
 class Camera(object):
-    # realsense相机处理类
+    # realsense camera class
 
     def __init__(self, width=960, height=540, fps=60):
         self.width = width
@@ -211,7 +213,7 @@ class Camera(object):
 
 
 class Thread2(QThread):  # handling the video data of the simple webcam
-    qtVideoStream = pyqtSignal(QPixmap)
+    qtVideoStream = pyqtSignal(QPixmap, float, float)
     d = pyqtSignal(str)
 
     def __init__(self, file_path):
@@ -220,6 +222,7 @@ class Thread2(QThread):  # handling the video data of the simple webcam
         self.file_path = file_path
         self.video_name = "video.mp4"
         self.video_path = os.path.join(self.file_path, self.video_name)
+
         # Initial global parameters
         self.fps, self.w, self.h = 30, 640, 360
         self.mp4 = cv2.VideoWriter_fourcc(*'mp4v')  # 视频格式
@@ -229,11 +232,44 @@ class Thread2(QThread):  # handling the video data of the simple webcam
         self.realsense_time_txt_name = "realsense_time.txt"
         self.realsense_txt_path = os.path.join(self.file_path, self.realsense_time_txt_name)
 
+        self.realsense_joint_xml_name = "joint.xml"
+        self.realsense_xml_path = os.path.join(self.file_path, self.realsense_joint_xml_name)
+
         self.model_path = './model/yolov8n-pose.pt'
-        self.model = None
+        self.model = YOLO(self.model_path)
+
+        self.root = ElementTree.Element("root")
+
+        # Initial angle to 0
+        self.left_elbow_angle = 0
+        self.right_elbow_angle = 0
+
+    def calculate_elbow_angle(self, keypoints, elbow_index, shoulder_index, wrist_index):
+        elbow = keypoints[elbow_index]
+        shoulder = keypoints[shoulder_index]
+        wrist = keypoints[wrist_index]
+
+        elbow_to_shoulder = [elbow[0] - shoulder[0], elbow[1] - shoulder[1]]
+
+        wrist_to_elbow = [wrist[0] - elbow[0], wrist[1] - elbow[1]]
+
+        shoulder_to_elbow = [shoulder[0] - elbow[0], shoulder[1] - elbow[1]]
+
+        wrist_shoulder_vector = math.atan2(wrist_to_elbow[1], wrist_to_elbow[0])
+        shoulder_elbow_vector = math.atan2(shoulder_to_elbow[1], shoulder_to_elbow[0])
+
+        # 计算肘关节角度（弧度）
+        elbow_angle = wrist_shoulder_vector - shoulder_elbow_vector
+
+        # 将角度转换为度数
+        elbow_angle_degrees = round(math.degrees(elbow_angle), 2)
+
+        elbow_angle_degrees = 360 - elbow_angle_degrees if elbow_angle_degrees > 180 else elbow_angle_degrees
+
+        return elbow_angle_degrees
 
     def run(self):
-        self.model = YOLO(self.model_path)
+
         with open(file=self.realsense_txt_path, mode="w", encoding="utf-8") as f2:
             while True:
                 color_image = self.cam.get_frame()
@@ -243,6 +279,11 @@ class Thread2(QThread):  # handling the video data of the simple webcam
                     # release all the resource if the user want to stop
                     self.wr.release()
                     self.cam.release()
+
+                    # save xml
+                    tree = ElementTree.ElementTree(self.root)
+                    tree.write(self.realsense_xml_path, encoding="utf-8", xml_declaration=True)
+
                     self.d.emit("finished")
                     print("finish")
                     break
@@ -252,14 +293,44 @@ class Thread2(QThread):  # handling the video data of the simple webcam
                     now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "\n"
                     f2.write(now_time)
                     color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
-                    # result = self.model.predict(color_image, conf=0.5)
-                    # skeleton_image = result[0].plot()
-                    # print(skeleton_image)
-                    # cv2.imshow('skeleton', skeleton_image)
+                    pose_image = self.model.predict(color_image, show_boxes=False)
+                    skeleton_image = pose_image[0].plot()
 
-                    self.showImage = QImage(color_image, color_image.shape[1], color_image.shape[0],
+                    self.showImage = QImage(skeleton_image, skeleton_image.shape[1], skeleton_image.shape[0],
                                             QImage.Format_RGB888)
-                    self.qtVideoStream.emit(QPixmap.fromImage(self.showImage))
+
+                    # save data into xml
+                    key_points = pose_image[0].keypoints.cpu().numpy()
+                    if key_points.has_visible:
+                        # save timestamp
+                        keypoint_element = ElementTree.SubElement(self.root, "keypoint")
+                        time_element = ElementTree.SubElement(keypoint_element, "timestamp")
+                        time_element.text = now_time
+
+                        # key_points.data[0] means get the first person detected
+                        first_person = key_points.data[0]
+
+                        # calculate elbow angle
+                        self.left_elbow_angle = self.calculate_elbow_angle(first_person, 7, 5, 9)
+                        self.right_elbow_angle = self.calculate_elbow_angle(first_person, 8, 6, 10)
+                        left_elbow_element = ElementTree.SubElement(keypoint_element, "left_elbow_angle")
+                        left_elbow_element.text = str(self.left_elbow_angle)
+                        right_elbow_element = ElementTree.SubElement(keypoint_element, "right_elbow_angle")
+                        right_elbow_element.text = str(self.right_elbow_angle)
+
+                        for value in first_person:
+                            # save 17 different joints positions: (x, y, confidence)
+                            position_element = ElementTree.SubElement(keypoint_element, "position")
+                            x_element = ElementTree.SubElement(position_element, "x")
+                            x_element.text = str(value[0])
+                            y_element = ElementTree.SubElement(position_element, "y")
+                            y_element.text = str(value[1])
+                            confidence_element = ElementTree.SubElement(position_element, "confidence")
+                            confidence_element.text = str(value[2])
+
+                    # transform real time image
+                    self.qtVideoStream.emit(QPixmap.fromImage(self.showImage), self.left_elbow_angle, self.right_elbow_angle)
+
                 else:
                     self.cap = cv2.VideoCapture("video.mp4")
 
@@ -272,7 +343,6 @@ class Thread3(QThread):
     def __init__(self, file_path):
         super(Thread3, self).__init__()
 
-        self.showImage = None
         self.file_path = file_path
 
         self.time_txt_name = "handwriting_time.txt"
@@ -293,7 +363,7 @@ class Thread3(QThread):
 
     def run(self):
         def on_progress_callback_for_real_time_pen_datas(x, y, pressure):
-            now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+            now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             self.line += "{}, {}, {}, {}\n".format(now_time, x, y, pressure)
             self.qtTrackStream.emit(x, y, pressure)
             # print(x, y, pressure)
@@ -310,9 +380,11 @@ class Thread3(QThread):
                     file.write(self.line)
                 # release all the resource if the user want to stop
                 self.digit_note_controller.disconnectDevice()
-                self.d.emit("thread3 finished")
-                print("thread3 finish")
+                self.d.emit("finished")
+                print("finish")
                 break
+            # sleep to save time for other threads
+            self.msleep(100)
 
 
 class MainWindow(QWidget, Ui_Form):
@@ -367,15 +439,15 @@ class MainWindow(QWidget, Ui_Form):
         if self.status == 0:
             self.create_output_file()
 
-            try:
-                # create the thread for the eyeball tracker
-                self.my_train = Thread1(self.eyetracker_path)
-                self.my_train.qtVideoStream.connect(self.display_screen1)
-                self.my_train.d.connect(self.hide_all)
-                self.my_train.start()
-            except:
-                print('Eyetracker not set up')
-                pass
+            # try:
+            #     # create the thread for the eyeball tracker
+            #     self.my_train = Thread1(self.eyetracker_path)
+            #     self.my_train.qtVideoStream.connect(self.display_screen1)
+            #     self.my_train.d.connect(self.hide_all)
+            #     self.my_train.start()
+            # except:
+            #     print('Eyetracker not set up')
+            #     pass
 
             try:
                 # create the thread for the simple webcam
@@ -400,13 +472,13 @@ class MainWindow(QWidget, Ui_Form):
             self.status = 1  # indicate the thread is running
             self.pushButton.setText("Stop")
         else:
-            try:
-                if self.my_train.isRunning():  # check the thread is running properly or not
-                    self.my_train.requestInterruption()
-                    self.my_train.quit()
-                    self.my_train.wait()
-            except:
-                pass  # It can be done usually, so just pass
+            # try:
+            #     if self.my_train.isRunning():  # check the thread is running properly or not
+            #         self.my_train.requestInterruption()
+            #         self.my_train.quit()
+            #         self.my_train.wait()
+            # except:
+            #     pass  # It can be done usually, so just pass
 
             try:
                 if self.my_train2.isRunning():
@@ -432,8 +504,9 @@ class MainWindow(QWidget, Ui_Form):
         self.label_3.setText("gaze x:{}\ngaze y: {}".format(x, y))
         # self.label_3.setMinimumHeight(self.image_label.height())
 
-    def display_screen2(self, img):  # display the video data on screen 2
+    def display_screen2(self, img, left_elbow_angle, right_elbow_angle):  # display the video data on screen 2
         self.image_label_2.setPixmap(img)
+        self.label.setText("left elbow angle :{}\nright elbow angle : {}".format(left_elbow_angle, right_elbow_angle))
 
     def display_screen3(self, x, y, pressure):  # display the pen data on screen 3
         if self.pixmap is None:

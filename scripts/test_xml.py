@@ -26,6 +26,5 @@ def read_xml_data(xml_file):
 if __name__ == '__main__':
     xml_file = "../data/2024-03-12/Leung Yuk Wing_003/realsense/joint.xml"
 
-
     data_list = read_xml_data(xml_file)
     print(data_list)
