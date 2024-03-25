@@ -197,4 +197,4 @@ class Ui_Form(object):
         self.comboBox.setItemText(7, _translate("Form", "Tse Tak Wah"))
         self.comboBox.setItemText(8, _translate("Form", "Leung Yuk Wing"))
         self.comboBox.setItemText(9, _translate("Form", "Cheung Yuen"))
-        self.pushButton.setText(_translate("Form", "PushButton"))
+        self.pushButton.setText(_translate("Form", "Start"))

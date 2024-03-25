@@ -18,6 +18,7 @@ from ultralytics import YOLO
 
 from ctypes import *
 import xml.etree.ElementTree as ElementTree
+import data_segment
 
 
 class Thread1(QThread):
@@ -439,15 +440,15 @@ class MainWindow(QWidget, Ui_Form):
         if self.status == 0:
             self.create_output_file()
 
-            # try:
-            #     # create the thread for the eyeball tracker
-            #     self.my_train = Thread1(self.eyetracker_path)
-            #     self.my_train.qtVideoStream.connect(self.display_screen1)
-            #     self.my_train.d.connect(self.hide_all)
-            #     self.my_train.start()
-            # except:
-            #     print('Eyetracker not set up')
-            #     pass
+            try:
+                # create the thread for the eyeball tracker
+                self.my_train = Thread1(self.eyetracker_path)
+                self.my_train.qtVideoStream.connect(self.display_screen1)
+                self.my_train.d.connect(self.hide_all)
+                self.my_train.start()
+            except:
+                print('Eyetracker not set up')
+                pass
 
             try:
                 # create the thread for the simple webcam
@@ -472,13 +473,13 @@ class MainWindow(QWidget, Ui_Form):
             self.status = 1  # indicate the thread is running
             self.pushButton.setText("Stop")
         else:
-            # try:
-            #     if self.my_train.isRunning():  # check the thread is running properly or not
-            #         self.my_train.requestInterruption()
-            #         self.my_train.quit()
-            #         self.my_train.wait()
-            # except:
-            #     pass  # It can be done usually, so just pass
+            try:
+                if self.my_train.isRunning():  # check the thread is running properly or not
+                    self.my_train.requestInterruption()
+                    self.my_train.quit()
+                    self.my_train.wait()
+            except:
+                pass  # It can be done usually, so just pass
 
             try:
                 if self.my_train2.isRunning():
@@ -496,17 +497,21 @@ class MainWindow(QWidget, Ui_Form):
             except:
                 pass  # It can be done usually, so just pass
 
+            # Process data
+            segment = data_segment.DataSegment(self.file_path)
+            segment.run_seg()
+
             self.pushButton.setText("Start")
             self.status = 0  # update the state
 
     def display_screen1(self, img, x, y):  # display the video data on screen 1
         self.image_label.setPixmap(img)
-        self.label_3.setText("gaze x:{}\ngaze y: {}".format(x, y))
+        self.label_3.setText("gaze x:\n{}\ngaze y:\n{}".format(x, y))
         # self.label_3.setMinimumHeight(self.image_label.height())
 
     def display_screen2(self, img, left_elbow_angle, right_elbow_angle):  # display the video data on screen 2
         self.image_label_2.setPixmap(img)
-        self.label.setText("left elbow angle :{}\nright elbow angle : {}".format(left_elbow_angle, right_elbow_angle))
+        self.label.setText("left elbow angle:\n{}\nright elbow angle:\n{}".format(left_elbow_angle, right_elbow_angle))
 
     def display_screen3(self, x, y, pressure):  # display the pen data on screen 3
         if self.pixmap is None:
@@ -530,7 +535,7 @@ class MainWindow(QWidget, Ui_Form):
 
         painter.end()
         self.image_label_3.setPixmap(self.pixmap)
-        self.label_2.setText("x:{}\ny: {}\npressure:{}".format(x, y, pressure))
+        self.label_2.setText("x:\n{}\ny:\n{}\npressure:\n{}".format(x, y, pressure))
 
     def hide_all(self):
         self.image_label.clear()

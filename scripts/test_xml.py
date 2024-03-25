@@ -1,30 +1,39 @@
 import xml.etree.ElementTree as ET
+import data_segment
 
 
-def xml_to_list(element):
-    result = {}
-    result['tag'] = element.tag
-    result['text'] = element.text
-
-    if len(element) > 0:
-        result['children'] = [xml_to_list(child) for child in element]
-    else:
-        result['children'] = []
-
-    return result
+class Keypoint:
+    def __init__(self, timestamp, left_elbow_angle, right_elbow_angle, positions):
+        self.timestamp = timestamp
+        self.left_elbow_angle = left_elbow_angle
+        self.right_elbow_angle = right_elbow_angle
+        self.positions = positions
 
 
-def read_xml_data(xml_file):
-    tree = ET.parse(xml_file)
-    root = tree.getroot()
-
-    data_list = [xml_to_list(child) for child in root]
-
-    return data_list
+class Position:
+    def __init__(self, x, y, confidence):
+        self.x = x
+        self.y = y
+        self.confidence = confidence
 
 
 if __name__ == '__main__':
-    xml_file = "../data/2024-03-12/Leung Yuk Wing_003/realsense/joint.xml"
+    xml_file = "../data/2024-03-22/Leung Yuk Wing_002/realsense/joint.xml"
 
-    data_list = read_xml_data(xml_file)
-    print(data_list)
+    file_path = '../data/2024-03-25/Leung Yuk Wing_002'
+    print('test start')
+    segment = data_segment.DataSegment(file_path)
+    segment.run_seg()
+
+    # 打印对象数组数据
+    # print(keypoints)
+    # for keypoint in keypoints:
+    #     print('Timestamp:', keypoint.timestamp)
+    #     print('Left Elbow Angle:', keypoint.left_elbow_angle)
+    #     print('Right Elbow Angle:', keypoint.right_elbow_angle)
+    #     print('Positions:')
+    #     for position in keypoint.positions:
+    #         print('  X:', position.x)
+    #         print('  Y:', position.y)
+    #         print('  Confidence:', position.confidence)
+    #     print('---')
