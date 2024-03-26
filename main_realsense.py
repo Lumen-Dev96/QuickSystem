@@ -214,7 +214,7 @@ class Camera(object):
 
 
 class Thread2(QThread):  # handling the video data of the simple webcam
-    qtVideoStream = pyqtSignal(QPixmap, float, float)
+    qtVideoStream = pyqtSignal(QPixmap, float, float, float, float)
     d = pyqtSignal(str)
 
     def __init__(self, file_path):
@@ -244,30 +244,58 @@ class Thread2(QThread):  # handling the video data of the simple webcam
         # Initial angle to 0
         self.left_elbow_angle = 0
         self.right_elbow_angle = 0
+        self.left_neck_angle = 0
+        self.right_neck_angle = 0
 
     def calculate_elbow_angle(self, keypoints, elbow_index, shoulder_index, wrist_index):
         elbow = keypoints[elbow_index]
         shoulder = keypoints[shoulder_index]
         wrist = keypoints[wrist_index]
 
-        elbow_to_shoulder = [elbow[0] - shoulder[0], elbow[1] - shoulder[1]]
-
         wrist_to_elbow = [wrist[0] - elbow[0], wrist[1] - elbow[1]]
 
         shoulder_to_elbow = [shoulder[0] - elbow[0], shoulder[1] - elbow[1]]
 
-        wrist_shoulder_vector = math.atan2(wrist_to_elbow[1], wrist_to_elbow[0])
+        wrist_elbow_vector = math.atan2(wrist_to_elbow[1], wrist_to_elbow[0])
         shoulder_elbow_vector = math.atan2(shoulder_to_elbow[1], shoulder_to_elbow[0])
 
         # 计算肘关节角度（弧度）
-        elbow_angle = wrist_shoulder_vector - shoulder_elbow_vector
+        elbow_angle = wrist_elbow_vector - shoulder_elbow_vector
 
         # 将角度转换为度数
-        elbow_angle_degrees = round(math.degrees(elbow_angle), 2)
+        elbow_angle_degrees = abs(round(math.degrees(elbow_angle), 2))
 
         elbow_angle_degrees = 360 - elbow_angle_degrees if elbow_angle_degrees > 180 else elbow_angle_degrees
 
         return elbow_angle_degrees
+
+    def calculate_neck_angle(self, keypoints, nose_index, l_shoulder_index, r_shoulder_index):
+        nose = keypoints[nose_index]
+        l_shoulder = keypoints[l_shoulder_index]
+        r_shoulder = keypoints[r_shoulder_index]
+
+        neck = [(l_shoulder[0] + r_shoulder[0]) / 2, (l_shoulder[1] + r_shoulder[1]) / 2]
+
+        nose_to_neck = [nose[0] - neck[0], nose[1] - neck[1]]
+
+        l_shoulder_to_neck = [l_shoulder[0] - neck[0], l_shoulder[1] - neck[1]]
+        r_shoulder_to_neck = [r_shoulder[0] - neck[0], r_shoulder[1] - neck[1]]
+
+        nose_neck_vector = math.atan2(nose_to_neck[1], nose_to_neck[0])
+        l_shoulder_neck_vector = math.atan2(l_shoulder_to_neck[1], l_shoulder_to_neck[0])
+        r_shoulder_neck_vector = math.atan2(r_shoulder_to_neck[1], r_shoulder_to_neck[0])
+
+        l_neck_angle = l_shoulder_neck_vector - nose_neck_vector
+        r_neck_angle = r_shoulder_neck_vector - nose_neck_vector
+
+        # 将角度转换为度数
+        l_neck_angle_degrees = abs(round(math.degrees(l_neck_angle), 2))
+        r_neck_angle_degrees = abs(round(math.degrees(r_neck_angle), 2))
+
+        l_neck_angle_degrees = 360 - l_neck_angle_degrees if l_neck_angle_degrees > 180 else l_neck_angle_degrees
+        r_neck_angle_degrees = 360 - r_neck_angle_degrees if r_neck_angle_degrees > 180 else r_neck_angle_degrees
+
+        return l_neck_angle_degrees, r_neck_angle_degrees
 
     def run(self):
 
@@ -314,6 +342,9 @@ class Thread2(QThread):  # handling the video data of the simple webcam
                         # calculate elbow angle
                         self.left_elbow_angle = self.calculate_elbow_angle(first_person, 7, 5, 9)
                         self.right_elbow_angle = self.calculate_elbow_angle(first_person, 8, 6, 10)
+                        neck_angle = self.calculate_neck_angle(first_person, 0, 5, 6)
+                        self.left_neck_angle = neck_angle[0]
+                        self.right_neck_angle = neck_angle[1]
                         left_elbow_element = ElementTree.SubElement(keypoint_element, "left_elbow_angle")
                         left_elbow_element.text = str(self.left_elbow_angle)
                         right_elbow_element = ElementTree.SubElement(keypoint_element, "right_elbow_angle")
@@ -330,7 +361,7 @@ class Thread2(QThread):  # handling the video data of the simple webcam
                             confidence_element.text = str(value[2])
 
                     # transform real time image
-                    self.qtVideoStream.emit(QPixmap.fromImage(self.showImage), self.left_elbow_angle, self.right_elbow_angle)
+                    self.qtVideoStream.emit(QPixmap.fromImage(self.showImage), self.left_elbow_angle, self.right_elbow_angle, self.left_neck_angle, self.right_neck_angle)
 
                 else:
                     self.cap = cv2.VideoCapture("video.mp4")
@@ -440,15 +471,15 @@ class MainWindow(QWidget, Ui_Form):
         if self.status == 0:
             self.create_output_file()
 
-            try:
-                # create the thread for the eyeball tracker
-                self.my_train = Thread1(self.eyetracker_path)
-                self.my_train.qtVideoStream.connect(self.display_screen1)
-                self.my_train.d.connect(self.hide_all)
-                self.my_train.start()
-            except:
-                print('Eyetracker not set up')
-                pass
+            # try:
+            #     # create the thread for the eyeball tracker
+            #     self.my_train = Thread1(self.eyetracker_path)
+            #     self.my_train.qtVideoStream.connect(self.display_screen1)
+            #     self.my_train.d.connect(self.hide_all)
+            #     self.my_train.start()
+            # except:
+            #     print('Eyetracker not set up')
+            #     pass
 
             try:
                 # create the thread for the simple webcam
@@ -473,13 +504,13 @@ class MainWindow(QWidget, Ui_Form):
             self.status = 1  # indicate the thread is running
             self.pushButton.setText("Stop")
         else:
-            try:
-                if self.my_train.isRunning():  # check the thread is running properly or not
-                    self.my_train.requestInterruption()
-                    self.my_train.quit()
-                    self.my_train.wait()
-            except:
-                pass  # It can be done usually, so just pass
+            # try:
+            #     if self.my_train.isRunning():  # check the thread is running properly or not
+            #         self.my_train.requestInterruption()
+            #         self.my_train.quit()
+            #         self.my_train.wait()
+            # except:
+            #     pass  # It can be done usually, so just pass
 
             try:
                 if self.my_train2.isRunning():
@@ -509,9 +540,10 @@ class MainWindow(QWidget, Ui_Form):
         self.label_3.setText("gaze x:\n{}\ngaze y:\n{}".format(x, y))
         # self.label_3.setMinimumHeight(self.image_label.height())
 
-    def display_screen2(self, img, left_elbow_angle, right_elbow_angle):  # display the video data on screen 2
+    def display_screen2(self, img, left_elbow_angle, right_elbow_angle, left_neck_angle, right_neck_angle):
+        # display the video data on screen 2
         self.image_label_2.setPixmap(img)
-        self.label.setText("left elbow angle:\n{}\nright elbow angle:\n{}".format(left_elbow_angle, right_elbow_angle))
+        self.label.setText("left elbow angle:\n{}\nright elbow angle:\n{}\nleft neck angle:\n{}\nright neck angle:\n{}".format(left_elbow_angle, right_elbow_angle, left_neck_angle, right_neck_angle))
 
     def display_screen3(self, x, y, pressure):  # display the pen data on screen 3
         if self.pixmap is None:
