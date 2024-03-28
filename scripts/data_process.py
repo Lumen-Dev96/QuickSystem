@@ -4,6 +4,7 @@ import time
 import os
 from util.common import check_file_exists
 import xml.etree.ElementTree as ET
+import data_segment
 
 
 def process_video(video_path):
@@ -72,7 +73,6 @@ def process_video(video_path):
 
 if __name__ == '__main__':
 
-
     date_directories = os.listdir('../data')
     model = YOLO('../model/yolov8x-pose.pt')
 
@@ -84,9 +84,15 @@ if __name__ == '__main__':
                 user_path = os.path.join(date_path, user_directory)
                 realsense_video_path = os.path.join(user_path, 'realsense/video.mp4')
                 realsense_joint_path = os.path.join(user_path, 'realsense/joint.xml')
-                if check_file_exists(realsense_video_path) and not check_file_exists(realsense_joint_path):
-                    print('Start processing video {}'.format(realsense_video_path))
-                    process_video(realsense_video_path)
+                handwriting_path = os.path.join(user_path, 'handwriting/handwriting_time.txt')
+                eyetracker_path = os.path.join(user_path, 'eyetracker/time.txt')
+                synchronize_path = os.path.join(user_path, 'synchronize/data.xml')
+                if (check_file_exists(realsense_joint_path) and
+                        check_file_exists(handwriting_path) and
+                        check_file_exists(eyetracker_path) and
+                        not check_file_exists(synchronize_path)):
+                    # process_video(realsense_video_path)
+                    segment = data_segment.DataSegment(user_path)
+                    segment.run_seg()
         else:
             print("{} is not a directory.".format(date_path))
-

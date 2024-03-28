@@ -196,7 +196,7 @@ class Camera(object):
         self.pipeline = rs.pipeline()
         self.config = rs.config()
         self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, fps)
-        self.pipeline.start(self.config)  # 开始连接相机
+        self.pipeline.start(self.config)
 
     def get_frame(self):
         frames = self.pipeline.wait_for_frames()  # 获得frame (包括彩色，深度图)
@@ -471,15 +471,15 @@ class MainWindow(QWidget, Ui_Form):
         if self.status == 0:
             self.create_output_file()
 
-            # try:
-            #     # create the thread for the eyeball tracker
-            #     self.my_train = Thread1(self.eyetracker_path)
-            #     self.my_train.qtVideoStream.connect(self.display_screen1)
-            #     self.my_train.d.connect(self.hide_all)
-            #     self.my_train.start()
-            # except:
-            #     print('Eyetracker not set up')
-            #     pass
+            try:
+                # create the thread for the eyeball tracker
+                self.my_train = Thread1(self.eyetracker_path)
+                self.my_train.qtVideoStream.connect(self.display_screen1)
+                self.my_train.d.connect(self.hide_all)
+                self.my_train.start()
+            except:
+                print('Eyetracker not set up')
+                pass
 
             try:
                 # create the thread for the simple webcam
@@ -504,13 +504,13 @@ class MainWindow(QWidget, Ui_Form):
             self.status = 1  # indicate the thread is running
             self.pushButton.setText("Stop")
         else:
-            # try:
-            #     if self.my_train.isRunning():  # check the thread is running properly or not
-            #         self.my_train.requestInterruption()
-            #         self.my_train.quit()
-            #         self.my_train.wait()
-            # except:
-            #     pass  # It can be done usually, so just pass
+            try:
+                if self.my_train.isRunning():  # check the thread is running properly or not
+                    self.my_train.requestInterruption()
+                    self.my_train.quit()
+                    self.my_train.wait()
+            except:
+                pass  # It can be done usually, so just pass
 
             try:
                 if self.my_train2.isRunning():
@@ -529,8 +529,8 @@ class MainWindow(QWidget, Ui_Form):
                 pass  # It can be done usually, so just pass
 
             # Process data
-            segment = data_segment.DataSegment(self.file_path)
-            segment.run_seg()
+            # segment = data_segment.DataSegment(self.file_path)
+            # segment.run_seg()
 
             self.pushButton.setText("Start")
             self.status = 0  # update the state
